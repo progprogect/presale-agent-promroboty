@@ -37,6 +37,23 @@ tr.crow td{padding:8px 10px;background:var(--tblr-bg-surface-tertiary)}
 tfoot td{font-weight:600;text-align:center}
 tfoot td:first-child{text-align:left;color:var(--tblr-secondary);font-weight:500}
 .icon-14{width:14px;height:14px;stroke-width:1.75}
+.step.zero .val,.step.zero button:first-child{display:none}
+.step.zero button:last-child{color:var(--tblr-border-color)}
+.step.zero button:last-child:hover{color:var(--tblr-primary)}
+tr.newtask td{background:var(--tblr-orange-lt)}
+tr.newtask input[type=number]{padding:2px 4px;text-align:center}
+tr.stageio td{background:var(--tblr-bg-surface-tertiary);padding:10px 12px}
+.io2{display:flex;gap:18px;flex-wrap:wrap;font-size:12px}
+.io2>div{flex:1;min-width:240px}
+.io2 b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--tblr-secondary);margin-bottom:3px}
+.io2 ul{margin:0;padding-left:16px}
+.io2 li{margin:1px 0}
+.io2 .cbox{margin-top:6px;max-width:none}
+.legend{font-size:12px;color:var(--tblr-secondary);margin:0 0 10px}
+.legend b{color:var(--tblr-body-color)}
+#tips{font-size:12.5px}
+#tips ul{margin:4px 0 0;padding-left:18px}
+#tips li{margin:2px 0}
 .savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
 .savebar input{max-width:200px}
 .savebar .status{font-size:12px;color:var(--tblr-secondary)}
@@ -97,13 +114,21 @@ const FIB=[1,2,3,5,8,13,21,34,55,89];
 const num=t=>+String(t).replace(',','.');
 const fmtH=v=>String(Math.round(v*100)/100).replace('.',',');
 function snap(v,dir){
-  if(dir>0){for(const f of FIB)if(f>v)return f;return v+55}
-  for(let i=FIB.length-1;i>=0;i--)if(FIB[i]<v)return FIB[i];return 1;
+  if(dir>0){if(v<1)return 1;for(const f of FIB)if(f>v)return f;return v+55}
+  if(v<=1)return 0;
+  for(let i=FIB.length-1;i>=0;i--)if(FIB[i]<v)return FIB[i];return 0;
 }
-const edits={hours:{},comments:{},alts:{}};
+const edits={hours:{},comments:{},alts:{},added:[]};
+const statusEl=document.getElementById('savestatus');
+function setDirty(){statusEl.textContent='есть несохранённые правки';}
+function rowSum(tr){
+  let t=0;tr.querySelectorAll('.step').forEach(s=>t+=num(s.querySelector('.val').textContent));
+  const c=tr.querySelector('.sum');if(c)c.textContent=fmtH(t);
+}
 function markCell(td,base){
-  const val=td.querySelector('.val');
+  const s=td.querySelector('.step'),val=s.querySelector('.val');
   const cur=num(val.textContent);
+  s.classList.toggle('zero',cur===0);
   td.classList.toggle('changed',cur!==base);
   let was=td.querySelector('.was');
   if(cur!==base){
@@ -118,7 +143,7 @@ document.querySelectorAll('.step').forEach(s=>{
     const cur=snap(num(val.textContent),dir);
     val.textContent=fmtH(cur);
     if(cur!==base)edits.hours[key]=cur;else delete edits.hours[key];
-    markCell(td,base);setDirty();
+    markCell(td,base);rowSum(td.closest('tr'));setDirty();
   }
   minus.onclick=e=>{e.stopPropagation();upd(-1)};
   plus.onclick=e=>{e.stopPropagation();upd(1)};
@@ -141,19 +166,110 @@ document.querySelectorAll('input[data-akey]').forEach(t=>{
   t.oninput=()=>{if(t.value.trim())edits.alts[t.dataset.akey]=t.value.trim();
     else delete edits.alts[t.dataset.akey];setDirty();};
 });
-const statusEl=document.getElementById('savestatus');
-function setDirty(){statusEl.textContent='есть несохранённые правки';}
-async function send(done){
+// --- добавление новых задач валидатором ---
+const ROLES=(window.PAGE_ROLES||[]);
+function addTaskRow(stageIdx, btnRow, data){
+  const entry=data||{stage:stageIdx,name:'',hours:{}};
+  if(!data)edits.added.push(entry);
+  const tr=document.createElement('tr');tr.className='task newtask';
+  let cells=`<td class="pkg"><div class="d-flex gap-1">
+      <input class="form-control form-control-sm nt-name" placeholder="Новая задача → результат" value="${(entry.name||'').replace(/"/g,'&quot;')}">
+      <button class="btn btn-icon btn-ghost-danger nt-del" title="Убрать">×</button></div></td>
+    <td><span class="badge bg-orange-lt">новое</span></td>`;
+  for(const r of ROLES){
+    const v=entry.hours[r]||'';
+    cells+=`<td class="num"><input type="number" min="0" step="0.5" class="form-control form-control-sm nt-h" data-role="${r}" value="${v}" style="width:58px;display:inline-block"></td>`;
+  }
+  cells+='<td class="sum nt-sum"></td><td></td>';
+  tr.innerHTML=cells;
+  btnRow.parentElement.insertBefore(tr,btnRow);
+  const recalc=()=>{let t=0;tr.querySelectorAll('.nt-h').forEach(i=>{
+      const v=num(i.value||0);if(v>0)entry.hours[i.dataset.role]=v;else delete entry.hours[i.dataset.role];t+=v;});
+    tr.querySelector('.nt-sum').textContent=t?fmtH(t):'';};
+  tr.querySelector('.nt-name').oninput=e=>{entry.name=e.target.value;setDirty();};
+  tr.querySelectorAll('.nt-h').forEach(i=>i.oninput=()=>{recalc();setDirty();});
+  tr.querySelector('.nt-del').onclick=()=>{
+    const i=edits.added.indexOf(entry);if(i>=0)edits.added.splice(i,1);tr.remove();setDirty();};
+  recalc();
+}
+document.querySelectorAll('.add-task').forEach(b=>{
+  b.onclick=()=>addTaskRow(+b.dataset.stage,b.closest('tr'));
+});
+// --- версии слоёв ---
+let LAYERS=[];
+const versel=document.getElementById('versel'),btnRestore=document.getElementById('btn-restore');
+function resetAll(){
+  document.querySelectorAll('.step').forEach(s=>{
+    s.querySelector('.val').textContent=fmtH(num(s.dataset.base));
+    markCell(s.closest('td'),num(s.dataset.base));rowSum(s.closest('tr'));});
+  document.querySelectorAll('textarea[data-ckey]').forEach(t=>t.value='');
+  document.querySelectorAll('input[data-akey]').forEach(t=>t.value='');
+  document.querySelectorAll('tr.newtask').forEach(t=>t.remove());
+  edits.hours={};edits.comments={};edits.alts={};edits.added=[];
+}
+function applyLayer(i){
+  resetAll();
+  if(i>=0&&LAYERS[i]){
+    const L=LAYERS[i];
+    Object.entries(L.hours||{}).forEach(([key,v])=>{
+      const s=document.querySelector(`.step[data-key="${key}"]`);if(!s)return;
+      s.querySelector('.val').textContent=fmtH(v);edits.hours[key]=v;
+      markCell(s.closest('td'),num(s.dataset.base));rowSum(s.closest('tr'));});
+    Object.entries(L.comments||{}).forEach(([k,v])=>{
+      const t=document.querySelector(`textarea[data-ckey="${k}"]`);
+      if(t){t.value=v;edits.comments[k]=v;const row=t.closest('tr.crow');if(row)row.hidden=false;}});
+    Object.entries(L.alts||{}).forEach(([k,v])=>{
+      const t=document.querySelector(`input[data-akey="${k}"]`);if(t){t.value=v;edits.alts[k]=v;}});
+    (L.added||[]).forEach(a=>{
+      const b=document.querySelector(`.add-task[data-stage="${a.stage}"]`);
+      const entry={stage:a.stage,name:a.name,hours:{...a.hours}};edits.added.push(entry);
+      if(b)addTaskRow(a.stage,b.closest('tr'),entry);});
+  }
+  if(btnRestore)btnRestore.hidden=!(LAYERS.length&&i<LAYERS.length-1);
+  statusEl.textContent=i<0?(LAYERS.length?'показана исходная версия':'исходная версия — правки лягут слоем, ничего не затирается')
+    :'версия '+(i+1)+' от '+(LAYERS[i].reviewer||'?')+' · '+(LAYERS[i].ts||'').slice(0,16).replace('T',' ');
+}
+function fillVersel(sel){
+  if(!versel)return;
+  versel.innerHTML='<option value="-1">Исходная</option>'+LAYERS.map((l,i)=>
+    `<option value="${i}">v${i+1} · ${(l.reviewer||'?')} · ${(l.ts||'').slice(5,16).replace('T',' ')}${l.done?' ✓':''}</option>`).join('');
+  versel.value=String(sel);
+}
+if(versel)versel.onchange=()=>applyLayer(+versel.value);
+if(btnRestore)btnRestore.onclick=()=>send(false,' (восстановление v'+(+versel.value+1)+')');
+async function send(done,note){
   const reviewer=document.getElementById('reviewer').value.trim();
   if(!reviewer){statusEl.textContent='укажите имя';return;}
   try{localStorage.setItem('reviewer',reviewer);}catch(e){}
+  const body={reviewer:reviewer+(note||''),done,...edits,
+    added:edits.added.filter(a=>a.name&&Object.keys(a.hours).length)};
   const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({reviewer,done,...edits})});
-  statusEl.textContent=r.ok?(done?'проверка завершена — спасибо!':'сохранено '+new Date().toLocaleTimeString()):'ошибка сохранения';
+    body:JSON.stringify(body)});
+  if(r.ok){
+    LAYERS.push({...body,ts:new Date().toISOString()});
+    fillVersel(LAYERS.length-1);if(btnRestore)btnRestore.hidden=true;
+    statusEl.textContent=done?'проверка завершена — спасибо!':'сохранено как v'+LAYERS.length;
+  }else statusEl.textContent='ошибка сохранения';
 }
 document.getElementById('btn-save').onclick=()=>send(false);
 document.getElementById('btn-done').onclick=()=>send(true);
 try{const n=localStorage.getItem('reviewer');if(n)document.getElementById('reviewer').value=n;}catch(e){}
+// подсказки
+const tipsBtn=document.getElementById('tips-btn'),tips=document.getElementById('tips');
+if(tipsBtn&&tips){
+  let seen=false;try{seen=!!localStorage.getItem('tips_seen');}catch(e){}
+  tips.hidden=seen;
+  tipsBtn.onclick=()=>{tips.hidden=!tips.hidden;try{localStorage.setItem('tips_seen','1');}catch(e){}};
+}
+// загрузка слоёв
+(async()=>{
+  try{
+    const r=await fetch(API_URL);if(!r.ok)return;
+    LAYERS=(await r.json()).updates||[];
+    fillVersel(LAYERS.length-1);
+    applyLayer(LAYERS.length-1);
+  }catch(e){}
+})();
 // голосовой комментарий: клик — запись, второй клик — стоп и расшифровка
 let rec=null;
 document.querySelectorAll('.mic-btn').forEach(b=>{
@@ -184,26 +300,6 @@ document.querySelectorAll('.mic-btn').forEach(b=>{
     rec.start();statusEl.textContent='идёт запись — нажмите кнопку ещё раз, чтобы остановить';
   };
 });
-// показать ранее сохранённые правки (последняя версия слоя)
-(async()=>{
-  try{
-    const r=await fetch(API_URL);if(!r.ok)return;
-    const data=await r.json();const last=data.updates&&data.updates[data.updates.length-1];
-    if(!last)return;
-    Object.entries(last.hours||{}).forEach(([key,v])=>{
-      const s=document.querySelector(`.step[data-key="${key}"]`);if(!s)return;
-      s.querySelector('.val').textContent=fmtH(v);edits.hours[key]=v;markCell(s.closest('td'),num(s.dataset.base));
-    });
-    Object.entries(last.comments||{}).forEach(([k,v])=>{
-      const t=document.querySelector(`textarea[data-ckey="${k}"]`);
-      if(t){t.value=v;edits.comments[k]=v;const row=t.closest('tr');if(row)row.hidden=false;}
-    });
-    Object.entries(last.alts||{}).forEach(([k,v])=>{
-      const t=document.querySelector(`input[data-akey="${k}"]`);if(t){t.value=v;edits.alts[k]=v;}
-    });
-    statusEl.textContent='показан слой правок от '+(last.reviewer||'?')+' ('+(last.ts||'').slice(0,16).replace('T',' ')+')';
-  }catch(e){}
-})();
 """
 
 
@@ -213,5 +309,9 @@ def savebar() -> str:
     <input id="reviewer" class="form-control form-control-sm" placeholder="Ваше имя">
     <button id="btn-save" class="btn btn-sm">Сохранить</button>
     <button id="btn-done" class="btn btn-primary btn-sm">Проверка завершена</button>
-    <span class="status" id="savestatus">правки лягут слоем поверх нашей версии — ничего не затирается</span>
+    <span class="ms-auto d-flex gap-2 align-items-center">
+      <select id="versel" class="form-select form-select-sm" style="width:auto" title="Версии правок"></select>
+      <button id="btn-restore" class="btn btn-sm" hidden title="Выбранная версия будет сохранена как новая — ничего не теряется">Восстановить как новую</button>
+    </span>
+    <span class="status" id="savestatus" style="flex-basis:100%">правки лягут слоем поверх нашей версии — ничего не затирается</span>
   </div>"""

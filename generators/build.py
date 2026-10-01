@@ -59,6 +59,11 @@ def build_all() -> list[str]:
         wbs_file = deal_dir / "wbs.yaml"
         if wbs_file.exists():
             wbs = yaml.safe_load(wbs_file.read_text())
+            io_file = deal_dir / "stage_io.yaml"
+            if io_file.exists():
+                io = yaml.safe_load(io_file.read_text()) or {}
+                for st in wbs["stages"]:
+                    st.update(io.get(st["name"], {}))
             (out / "wbs.html").write_text(wbs_page.render(deal, wbs))
             built.append(f"{deal['slug']}/wbs.html")
         bom_file = deal_dir / "bom.yaml"

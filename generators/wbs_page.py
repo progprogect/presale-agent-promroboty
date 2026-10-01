@@ -23,6 +23,10 @@ def _basis_cell(basis: dict) -> str:
     return f'<span class="badge {cls}" title="{esc(tip)}">{label}{extra}</span>'
 
 
+def task_prefix(stage: dict) -> str:
+    return stage["name"].split("·")[0].strip()
+
+
 def render(deal: dict, wbs: dict) -> str:
     roles = wbs["roles"]
     role_tot: dict = defaultdict(int)
@@ -57,8 +61,15 @@ def render(deal: dict, wbs: dict) -> str:
                             f'<td class="num"><span class="step" data-key="{esc(key)}" data-base="{v}">'
                             f'<button class="btn btn-icon">−</button><span class="val">{fmt_h(v)}</span>'
                             f'<button class="btn btn-icon">+</button></span></td>')
-                else:
+                elif locked:
                     cells.append('<td class="none">—</td>')
+                else:
+                    key = f'{task["id"]}|{role}'
+                    cells.append(
+                        f'<td class="num"><span class="step zero" data-key="{esc(key)}" data-base="0" '
+                        f'title="Добавить часы роли {esc(role)}">'
+                        f'<button class="btn btn-icon">−</button><span class="val">0</span>'
+                        f'<button class="btn btn-icon">+</button></span></td>')
             tid = task["id"].replace(".", "-")
             rows.append(f"""
       <tr class="task"{hid}>
@@ -77,9 +88,28 @@ def render(deal: dict, wbs: dict) -> str:
           <button class="btn btn-sm mic-btn" data-for="{esc(task["id"])}" title="Надиктовать">{ICON_MIC}</button>
         </div></td>
       </tr>""")
+        io_html = ""
+        if stage.get("deliverables") or stage.get("inputs"):
+            dl = "".join(f"<li>{esc(x)}</li>" for x in stage.get("deliverables", []))
+            inp = "".join(f"<li>{esc(x)}</li>" for x in stage.get("inputs", []))
+            skey = f"stage:{task_prefix(stage)}"
+            io_html = f'''
+      <tr class="task stageio"{hid}><td colspan="{len(roles) + 4}">
+        <div class="io2">
+          <div><b>Выход этапа — что физически получим</b><ul>{dl}</ul></div>
+          <div><b>Вход — что нужно до старта</b><ul>{inp}</ul></div>
+        </div>
+        <div class="cbox">
+          <textarea class="form-control" data-ckey="{esc(skey)}"
+            placeholder="Комментарий к составу этапа…"></textarea>
+          <button class="btn btn-sm mic-btn" data-for="{esc(skey)}" title="Надиктовать">{ICON_MIC}</button>
+        </div></td></tr>'''
+        add_html = (f'\n      <tr class="task addrow"{hid}><td colspan="{len(roles) + 4}">'
+                    f'<button class="btn btn-sm btn-ghost-secondary add-task" data-stage="{si}">'
+                    f'+ Добавить задачу в этап</button></td></tr>')
         grand += st_tot
         closed = "" if si == 1 else " closed"
-        rows_html = "".join(rows)
+        rows_html = "".join(rows) + io_html + add_html
         bodies.append(f"""
     <tbody>
       <tr class="stage{closed}" onclick="toggleStage(this)">
@@ -89,16 +119,27 @@ def render(deal: dict, wbs: dict) -> str:
     </tbody>""")
 
     role_names = wbs.get("role_names", {})
+    legend = " · ".join(f"<b>{esc(r)}</b> — {esc(role_names.get(r, '?'))}" for r in roles)
     role_th = "".join(
         f'<th class="num" title="{esc(role_names.get(r, ""))}">{esc(r)}</th>' for r in roles)
     role_tf = "".join(f"<td>{fmt_h(role_tot[r])}</td>" for r in roles)
 
     body = f"""
-  <p class="hint">Этапы сворачиваются кликом. Часы: − / + (шаг по Фибоначчи). Комментарий — иконка справа.</p>
+  <p class="legend">{legend}</p>
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
     <button class="btn btn-sm" onclick="toggleAll(true)">Развернуть</button>
     <button class="btn btn-sm" onclick="toggleAll(false)">Свернуть</button>
+    <button class="btn btn-sm" id="tips-btn">Как работать?</button>
     <span class="ms-auto text-secondary">Итого: <b class="text-dark">{fmt_h(grand)} ч</b></span>
+  </div>
+  <div class="alert alert-info" id="tips" hidden>
+    <ul>
+      <li><b>Этапы</b> сворачиваются кликом по серой строке; «Развернуть/Свернуть» — все сразу.</li>
+      <li><b>Часы</b> меняются кнопками − / + (шаг по ряду Фибоначчи: 1, 2, 3, 5, 8…). Правка подсвечивается синим с пометкой «было». Пустая ячейка: нажмите «+», чтобы добавить роль в задачу.</li>
+      <li><b>Новая задача</b> — кнопка «+ Добавить задачу» в конце каждого этапа: впишите название и часы по ролям.</li>
+      <li><b>Комментарий</b> к задаче — иконка 💬 справа; можно надиктовать голосом (кнопка с микрофоном). Комментарий к составу этапа — в блоке «Выход / Вход» под этапом.</li>
+      <li><b>Сохранение:</b> «Сохранить» фиксирует вашу версию правок; наша исходная не затирается. Переключатель версий справа внизу показывает любую прошлую версию, «Восстановить как новую» вернёт её без потери истории. Закончили — жмите «Проверка завершена».</li>
+    </ul>
   </div>
   <div class="card"><div class="tablebox">
   <table class="table table-vcenter card-table matrix">
@@ -111,5 +152,7 @@ def render(deal: dict, wbs: dict) -> str:
   </div></div>
   {savebar()}"""
 
-    script = f'const API_URL="/api/d/{deal["slug"]}/review/wbs";\n' + REVIEW_JS
+    import json
+    script = (f'const API_URL="/api/d/{deal["slug"]}/review/wbs";'
+              f'window.PAGE_ROLES={json.dumps(roles, ensure_ascii=False)};\n') + REVIEW_JS
     return shell(deal, "Декомпозиция работ", "wbs", body, script)

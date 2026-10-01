@@ -77,7 +77,7 @@ def _add_update(slug: str, page: str, entry: dict) -> int:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.3"}
+    return {"status": "ok", "version": "0.4"}
 
 
 @app.get("/")
@@ -101,6 +101,7 @@ class Review(BaseModel):
     hours: dict[str, float] = {}
     comments: dict[str, str] = {}
     alts: dict[str, str] = {}
+    added: list[dict] = []
 
 
 def _check_ref(slug: str, page: str) -> None:
