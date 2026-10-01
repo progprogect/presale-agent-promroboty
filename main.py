@@ -19,6 +19,7 @@ from generators.build import BUILD, build_all
 
 BASE_DIR = Path(__file__).resolve().parent
 RUNTIME = Path(os.environ.get("RUNTIME_DIR", BASE_DIR / "runtime"))
+DB_URL = os.environ.get("DATABASE_URL")
 
 app = FastAPI(title="PromRoboty Validation Portal", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -28,11 +29,55 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 def startup() -> None:
     build_all()
     RUNTIME.mkdir(parents=True, exist_ok=True)
+    if DB_URL:
+        with _db() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS reviews (
+                id serial PRIMARY KEY, slug text NOT NULL, page text NOT NULL,
+                entry jsonb NOT NULL, ts timestamptz DEFAULT now())""")
+            conn.commit()
+
+
+def _db():
+    import psycopg
+    return psycopg.connect(DB_URL)
+
+
+def _get_updates(slug: str, page: str) -> dict:
+    """Слои правок: Postgres, если подключён, иначе файлы runtime/."""
+    if DB_URL:
+        with _db() as conn:
+            rows = conn.execute(
+                "SELECT entry FROM reviews WHERE slug=%s AND page=%s ORDER BY id",
+                (slug, page)).fetchall()
+        return {"updates": [r[0] for r in rows]}
+    path = RUNTIME / slug / f"{page}.json"
+    if not path.exists():
+        return {"updates": []}
+    return json.loads(path.read_text())
+
+
+def _add_update(slug: str, page: str, entry: dict) -> int:
+    if DB_URL:
+        with _db() as conn:
+            conn.execute(
+                "INSERT INTO reviews (slug, page, entry) VALUES (%s, %s, %s)",
+                (slug, page, json.dumps(entry, ensure_ascii=False)))
+            conn.commit()
+            n = conn.execute(
+                "SELECT count(*) FROM reviews WHERE slug=%s AND page=%s",
+                (slug, page)).fetchone()[0]
+        return n
+    path = RUNTIME / slug / f"{page}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json.loads(path.read_text()) if path.exists() else {"updates": []}
+    data["updates"].append(entry)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+    return len(data["updates"])
 
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.2"}
+    return {"status": "ok", "version": "0.3"}
 
 
 @app.get("/")
@@ -58,30 +103,29 @@ class Review(BaseModel):
     alts: dict[str, str] = {}
 
 
-def _review_file(slug: str, page: str) -> Path:
+def _check_ref(slug: str, page: str) -> None:
     if page not in ("wbs", "bom") or "/" in slug or ".." in slug:
         raise HTTPException(404)
-    return RUNTIME / slug / f"{page}.json"
+
+
+@app.get("/api/deals")
+def deals() -> FileResponse:
+    return FileResponse(BUILD / "deals.json")
 
 
 @app.get("/api/d/{slug}/review/{page}")
 def get_review(slug: str, page: str) -> JSONResponse:
-    path = _review_file(slug, page)
-    if not path.exists():
-        return JSONResponse({"updates": []})
-    return JSONResponse(json.loads(path.read_text()))
+    _check_ref(slug, page)
+    return JSONResponse(_get_updates(slug, page))
 
 
 @app.post("/api/d/{slug}/review/{page}")
 def post_review(slug: str, page: str, review: Review) -> dict:
-    path = _review_file(slug, page)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    data = json.loads(path.read_text()) if path.exists() else {"updates": []}
+    _check_ref(slug, page)
     entry = review.model_dump()
     entry["ts"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    data["updates"].append(entry)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=1))
-    return {"status": "ok", "updates": len(data["updates"])}
+    n = _add_update(slug, page, entry)
+    return {"status": "ok", "updates": n}
 
 
 @app.post("/api/transcribe")

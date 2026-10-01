@@ -66,6 +66,9 @@ def build_all() -> list[str]:
             built.append(f"{deal['slug']}/bom.html")
     (BUILD / "index.html").write_text(_index(deals))
     built.append("index.html")
+    import json
+    (BUILD / "deals.json").write_text(json.dumps(deals, ensure_ascii=False, indent=1))
+    built.append("deals.json")
     return built
 
 
