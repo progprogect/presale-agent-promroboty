@@ -7,7 +7,13 @@ BASIS_BADGE = {
     "analog": ("по аналогу", "bg-green-lt"),
     "norm": ("по нормативу", "bg-blue-lt"),
     "expert": ("экспертно", "bg-purple-lt"),
+    "new": ("новое", "bg-orange-lt"),
 }
+
+
+def fmt_h(v) -> str:
+    """Часы по-русски: 8, 1,5, 0,75."""
+    return (str(int(v)) if float(v) == int(v) else str(round(float(v), 2)).replace(".", ","))
 
 
 def _basis_cell(basis: dict) -> str:
@@ -27,8 +33,14 @@ def render(deal: dict, wbs: dict) -> str:
         st_tot = 0
         rows = []
         hid = "" if si == 1 else " hidden"
+        cur_group = None
         for task in stage["tasks"]:
+            if task.get("group") and task["group"] != cur_group:
+                cur_group = task["group"]
+                rows.append(f'\n      <tr class="task grp"{hid}><td colspan="{len(roles) + 4}">'
+                            f'{esc(cur_group)}</td></tr>')
             hours = task.get("hours", {})
+            locked = task.get("lock", False)
             t_sum = sum(hours.values())
             st_tot += t_sum
             cells = []
@@ -37,10 +49,14 @@ def render(deal: dict, wbs: dict) -> str:
                     v = hours[role]
                     role_tot[role] += v
                     key = f'{task["id"]}|{role}'
-                    cells.append(
-                        f'<td class="num"><span class="step" data-key="{esc(key)}" data-base="{v}">'
-                        f'<button class="btn btn-icon">−</button><span class="val">{v}</span>'
-                        f'<button class="btn btn-icon">+</button></span></td>')
+                    if locked:
+                        cells.append(f'<td class="num locked" title="Оценка на нашей стороне (CV/ПО)">'
+                                     f'{fmt_h(v)}</td>')
+                    else:
+                        cells.append(
+                            f'<td class="num"><span class="step" data-key="{esc(key)}" data-base="{v}">'
+                            f'<button class="btn btn-icon">−</button><span class="val">{fmt_h(v)}</span>'
+                            f'<button class="btn btn-icon">+</button></span></td>')
                 else:
                     cells.append('<td class="none">—</td>')
             tid = task["id"].replace(".", "-")
@@ -50,7 +66,7 @@ def render(deal: dict, wbs: dict) -> str:
           <span class="res">{esc(task["result"])}</span></td>
         <td>{_basis_cell(task["basis"])}</td>
         {"".join(cells)}
-        <td class="sum">{t_sum}</td>
+        <td class="sum">{fmt_h(t_sum)}</td>
         <td class="num"><button class="btn btn-ghost-secondary btn-icon cmt-toggle" data-id="{tid}"
           title="Комментарий">{ICON_COMMENT}</button></td>
       </tr>
@@ -67,20 +83,22 @@ def render(deal: dict, wbs: dict) -> str:
         bodies.append(f"""
     <tbody>
       <tr class="stage{closed}" onclick="toggleStage(this)">
-        <td colspan="{len(roles) + 4}"><span class="chev">▾</span> Этап {si} · {esc(stage["name"])}
-          <span class="st-sum">{st_tot} ч · {len(stage["tasks"])} пак.</span></td>
+        <td colspan="{len(roles) + 4}"><span class="chev">▾</span> {esc(stage["name"])}
+          <span class="st-sum">{fmt_h(st_tot)} ч · {len(stage["tasks"])} пак.</span></td>
       </tr>{rows_html}
     </tbody>""")
 
-    role_th = "".join(f'<th class="num">{esc(r)}</th>' for r in roles)
-    role_tf = "".join(f"<td>{role_tot[r]}</td>" for r in roles)
+    role_names = wbs.get("role_names", {})
+    role_th = "".join(
+        f'<th class="num" title="{esc(role_names.get(r, ""))}">{esc(r)}</th>' for r in roles)
+    role_tf = "".join(f"<td>{fmt_h(role_tot[r])}</td>" for r in roles)
 
     body = f"""
   <p class="hint">Этапы сворачиваются кликом. Часы: − / + (шаг по Фибоначчи). Комментарий — иконка справа.</p>
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
     <button class="btn btn-sm" onclick="toggleAll(true)">Развернуть</button>
     <button class="btn btn-sm" onclick="toggleAll(false)">Свернуть</button>
-    <span class="ms-auto text-secondary">Итого: <b class="text-dark">{grand} ч</b></span>
+    <span class="ms-auto text-secondary">Итого: <b class="text-dark">{fmt_h(grand)} ч</b></span>
   </div>
   <div class="card"><div class="tablebox">
   <table class="table table-vcenter card-table matrix">
@@ -88,7 +106,7 @@ def render(deal: dict, wbs: dict) -> str:
       <th>Пакет работ</th><th>Основание</th>{role_th}<th class="num">Σ</th><th class="num"></th>
     </tr></thead>
     {"".join(bodies)}
-    <tfoot><tr><td colspan="2">Итого по ролям</td>{role_tf}<td>{grand}</td><td></td></tr></tfoot>
+    <tfoot><tr><td colspan="2">Итого по ролям</td>{role_tf}<td>{fmt_h(grand)}</td><td></td></tr></tfoot>
   </table>
   </div></div>
   {savebar()}"""

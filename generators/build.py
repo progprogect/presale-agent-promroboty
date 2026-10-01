@@ -24,8 +24,9 @@ def _index(deals: list[dict]) -> str:
         </div>
         <div class="text-secondary" style="font-size:12px">{esc(d["version"])} · {esc(str(d["updated"]))}</div>
         <div class="mt-2 d-flex gap-2">
-          <a class="btn btn-sm" href="/d/{esc(d["slug"])}/wbs">Декомпозиция</a>
-          <a class="btn btn-sm" href="/d/{esc(d["slug"])}/bom">Компоненты</a>
+          {"".join(f'<a class="btn btn-sm" href="/d/{esc(d["slug"])}/{p}">{n}</a>'
+                   for p, n in (("wbs", "Декомпозиция"), ("bom", "Компоненты"))
+                   if p in d.get("pages", []))}
         </div>
       </div></div>
     </div>""" for d in deals)
@@ -51,6 +52,7 @@ def build_all() -> list[str]:
         if not (deal_dir / "deal.yaml").exists():
             continue
         deal = yaml.safe_load((deal_dir / "deal.yaml").read_text())
+        deal["pages"] = [p for p in ("wbs", "bom") if (deal_dir / f"{p}.yaml").exists()]
         deals.append(deal)
         out = BUILD / deal["slug"]
         out.mkdir(parents=True, exist_ok=True)

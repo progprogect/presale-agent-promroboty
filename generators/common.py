@@ -25,6 +25,9 @@ td.pkg .res{display:block;font-weight:400;color:var(--tblr-secondary);font-size:
 .step{display:inline-flex;align-items:center;gap:1px}
 .step .val{min-width:26px;text-align:center;font-weight:500}
 .step .btn-icon{width:20px;height:20px;min-height:0;font-size:12px;padding:0}
+tr.grp td{background:var(--tblr-bg-surface-tertiary);color:var(--tblr-secondary);
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px}
+td.locked{background:var(--tblr-bg-surface-secondary);color:var(--tblr-secondary);font-weight:500}
 td.changed{background:var(--tblr-blue-lt)}
 td.changed .was{display:block;font-size:10px;color:var(--tblr-blue)}
 td.none{color:var(--tblr-border-color);text-align:center}
@@ -77,8 +80,9 @@ def shell(deal: dict, page_title: str, active: str, body: str, script: str = "")
     </div>
   </div>
   <ul class="nav nav-pills mb-2" style="gap:4px">
-    <li class="nav-item">{tab("wbs", "Декомпозиция работ")}</li>
-    <li class="nav-item">{tab("bom", "Компоненты")}</li>
+    {"".join(f'<li class="nav-item">{tab(p, n)}</li>'
+             for p, n in (("wbs", "Декомпозиция работ"), ("bom", "Компоненты"))
+             if p in deal.get("pages", ["wbs", "bom"]))}
   </ul>
   {body}
 </div>
@@ -90,6 +94,8 @@ def shell(deal: dict, page_title: str, active: str, body: str, script: str = "")
 # Общий JS: степперы Фибоначчи, сворачивание этапов, слой правок и отправка.
 REVIEW_JS = r"""
 const FIB=[1,2,3,5,8,13,21,34,55,89];
+const num=t=>+String(t).replace(',','.');
+const fmtH=v=>String(Math.round(v*100)/100).replace('.',',');
 function snap(v,dir){
   if(dir>0){for(const f of FIB)if(f>v)return f;return v+55}
   for(let i=FIB.length-1;i>=0;i--)if(FIB[i]<v)return FIB[i];return 1;
@@ -97,20 +103,20 @@ function snap(v,dir){
 const edits={hours:{},comments:{},alts:{}};
 function markCell(td,base){
   const val=td.querySelector('.val');
-  const cur=+val.textContent;
+  const cur=num(val.textContent);
   td.classList.toggle('changed',cur!==base);
   let was=td.querySelector('.was');
   if(cur!==base){
     if(!was){was=document.createElement('span');was.className='was';td.appendChild(was);}
-    was.textContent='было '+base;
+    was.textContent='было '+fmtH(base);
   }else if(was){was.remove();}
 }
 document.querySelectorAll('.step').forEach(s=>{
-  const td=s.closest('td'),base=+s.dataset.base,key=s.dataset.key;
+  const td=s.closest('td'),base=num(s.dataset.base),key=s.dataset.key;
   const[minus,plus]=s.querySelectorAll('button'),val=s.querySelector('.val');
   function upd(dir){
-    val.textContent=snap(+val.textContent,dir);
-    const cur=+val.textContent;
+    const cur=snap(num(val.textContent),dir);
+    val.textContent=fmtH(cur);
     if(cur!==base)edits.hours[key]=cur;else delete edits.hours[key];
     markCell(td,base);setDirty();
   }
@@ -186,7 +192,7 @@ document.querySelectorAll('.mic-btn').forEach(b=>{
     if(!last)return;
     Object.entries(last.hours||{}).forEach(([key,v])=>{
       const s=document.querySelector(`.step[data-key="${key}"]`);if(!s)return;
-      s.querySelector('.val').textContent=v;edits.hours[key]=v;markCell(s.closest('td'),+s.dataset.base);
+      s.querySelector('.val').textContent=fmtH(v);edits.hours[key]=v;markCell(s.closest('td'),num(s.dataset.base));
     });
     Object.entries(last.comments||{}).forEach(([k,v])=>{
       const t=document.querySelector(`textarea[data-ckey="${k}"]`);

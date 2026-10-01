@@ -98,7 +98,7 @@ def deal_page(slug: str, page: str) -> FileResponse:
 class Review(BaseModel):
     reviewer: str
     done: bool = False
-    hours: dict[str, int] = {}
+    hours: dict[str, float] = {}
     comments: dict[str, str] = {}
     alts: dict[str, str] = {}
 
