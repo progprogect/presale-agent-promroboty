@@ -8,8 +8,9 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+import requests
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -81,6 +82,30 @@ def post_review(slug: str, page: str, review: Review) -> dict:
     data["updates"].append(entry)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=1))
     return {"status": "ok", "updates": len(data["updates"])}
+
+
+@app.post("/api/transcribe")
+async def transcribe(file: UploadFile) -> dict:
+    """Голосовой комментарий -> текст (OpenAI). Ключ только в env Railway."""
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        raise HTTPException(503, "распознавание не настроено")
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(413, "запись длиннее лимита")
+    last_err = "нет ответа"
+    for model in ("gpt-4o-mini-transcribe", "whisper-1"):
+        r = requests.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {key}"},
+            files={"file": (file.filename or "rec.webm", data, file.content_type or "audio/webm")},
+            data={"model": model, "language": "ru"},
+            timeout=90,
+        )
+        if r.ok:
+            return {"text": r.json().get("text", "")}
+        last_err = r.text[:200]
+    raise HTTPException(502, last_err)
 
 
 if __name__ == "__main__":

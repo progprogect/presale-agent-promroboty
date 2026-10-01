@@ -148,6 +148,36 @@ async function send(done){
 document.getElementById('btn-save').onclick=()=>send(false);
 document.getElementById('btn-done').onclick=()=>send(true);
 try{const n=localStorage.getItem('reviewer');if(n)document.getElementById('reviewer').value=n;}catch(e){}
+// голосовой комментарий: клик — запись, второй клик — стоп и расшифровка
+let rec=null;
+document.querySelectorAll('.mic-btn').forEach(b=>{
+  b.onclick=async()=>{
+    if(rec){rec.stop();return;}
+    let stream;
+    try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+    catch(e){statusEl.textContent='нет доступа к микрофону';return;}
+    const chunks=[];
+    rec=new MediaRecorder(stream);
+    b.classList.add('btn-danger');b.title='Остановить запись';
+    rec.ondataavailable=e=>chunks.push(e.data);
+    rec.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});
+      rec=null;b.classList.remove('btn-danger');b.title='Надиктовать';
+      statusEl.textContent='распознаю…';
+      const fd=new FormData();fd.append('file',blob,'rec.webm');
+      try{
+        const r=await fetch('/api/transcribe',{method:'POST',body:fd});
+        if(!r.ok){statusEl.textContent='распознавание: '+(r.status===503?'не настроено на сервере':'ошибка '+r.status);return;}
+        const {text}=await r.json();
+        const t=document.querySelector(`textarea[data-ckey="${b.dataset.for}"]`);
+        if(t&&text){t.value=(t.value?t.value+' ':'')+text;t.dispatchEvent(new Event('input'));}
+        statusEl.textContent='распознано';
+      }catch(e){statusEl.textContent='распознавание: сеть недоступна';}
+    };
+    rec.start();statusEl.textContent='идёт запись — нажмите кнопку ещё раз, чтобы остановить';
+  };
+});
 // показать ранее сохранённые правки (последняя версия слоя)
 (async()=>{
   try{
@@ -171,14 +201,11 @@ try{const n=localStorage.getItem('reviewer');if(n)document.getElementById('revie
 """
 
 
-def savebar(mic: bool = False) -> str:
-    mic_btn = (f'<button class="btn btn-sm" disabled title="Голосовые комментарии — в следующей версии">'
-               f'{ICON_MIC}</button>') if mic else ""
-    return f"""
+def savebar() -> str:
+    return """
   <div class="savebar">
     <input id="reviewer" class="form-control form-control-sm" placeholder="Ваше имя">
     <button id="btn-save" class="btn btn-sm">Сохранить</button>
     <button id="btn-done" class="btn btn-primary btn-sm">Проверка завершена</button>
-    {mic_btn}
     <span class="status" id="savestatus">правки лягут слоем поверх нашей версии — ничего не затирается</span>
   </div>"""

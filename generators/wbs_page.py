@@ -1,7 +1,7 @@
 """CSPL-генератор: wbs.yaml -> страница валидации декомпозиции работ (Tabler)."""
 from collections import defaultdict
 
-from .common import ICON_COMMENT, REVIEW_JS, esc, savebar, shell
+from .common import ICON_COMMENT, ICON_MIC, REVIEW_JS, esc, savebar, shell
 
 BASIS_BADGE = {
     "analog": ("по аналогу", "bg-green-lt"),
@@ -58,6 +58,7 @@ def render(deal: dict, wbs: dict) -> str:
         <td colspan="{len(roles) + 4}"><div class="cbox">
           <textarea class="form-control" data-ckey="{esc(task["id"])}"
             placeholder="Комментарий к пакету {esc(task["id"])}…"></textarea>
+          <button class="btn btn-sm mic-btn" data-for="{esc(task["id"])}" title="Надиктовать">{ICON_MIC}</button>
         </div></td>
       </tr>""")
         grand += st_tot
@@ -90,7 +91,7 @@ def render(deal: dict, wbs: dict) -> str:
     <tfoot><tr><td colspan="2">Итого по ролям</td>{role_tf}<td>{grand}</td><td></td></tr></tfoot>
   </table>
   </div></div>
-  {savebar(mic=True)}"""
+  {savebar()}"""
 
     script = f'const API_URL="/api/d/{deal["slug"]}/review/wbs";\n' + REVIEW_JS
     return shell(deal, "Декомпозиция работ", "wbs", body, script)
