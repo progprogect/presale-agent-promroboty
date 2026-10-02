@@ -31,9 +31,12 @@ def render(deal: dict, wbs: dict) -> str:
     roles = wbs["roles"]
     role_tot: dict = defaultdict(int)
     grand = 0
+    opt_grand = 0
     bodies = []
+    opt_sep_done = False
 
     for si, stage in enumerate(wbs["stages"], 1):
+        opt = bool(stage.get("option"))  # опция: вне итога, показывается отдельным блоком
         st_tot = 0
         rows = []
         hid = "" if si == 1 else " hidden"
@@ -51,7 +54,8 @@ def render(deal: dict, wbs: dict) -> str:
             for role in roles:
                 if role in hours:
                     v = hours[role]
-                    role_tot[role] += v
+                    if not opt:
+                        role_tot[role] += v
                     key = f'{task["id"]}|{role}'
                     if locked:
                         cells.append(f'<td class="num locked" title="Оценка на нашей стороне (CV/ПО)">'
@@ -107,14 +111,23 @@ def render(deal: dict, wbs: dict) -> str:
         add_html = (f'\n      <tr class="task addrow"{hid}><td colspan="{len(roles) + 4}">'
                     f'<button class="btn btn-sm btn-ghost-secondary add-task" data-stage="{si}">'
                     f'+ Добавить задачу в этап</button></td></tr>')
-        grand += st_tot
+        if opt:
+            opt_grand += st_tot
+        else:
+            grand += st_tot
         closed = "" if si == 1 else " closed"
         rows_html = "".join(rows) + io_html + add_html
-        bodies.append(f"""
+        sep = ""
+        if opt and not opt_sep_done:
+            opt_sep_done = True
+            sep = (f'<tbody><tr class="optsep"><td colspan="{len(roles) + 4}">'
+                   f'Опции — вне базового объёма и итога; заказчик выбирает отдельно</td></tr></tbody>')
+        badge = '<span class="badge bg-orange-lt me-2">опция</span>' if opt else ""
+        bodies.append(f"""{sep}
     <tbody>
       <tr class="stage{closed}" onclick="toggleStage(this)">
         <td colspan="{len(roles) + 4}"><span class="chev">▾</span> {esc(stage["name"])}
-          <span class="st-sum">{fmt_h(st_tot)} ч · {len(stage["tasks"])} пак.</span></td>
+          <span class="st-sum">{badge}{fmt_h(st_tot)} ч · {len(stage["tasks"])} пак.</span></td>
       </tr>{rows_html}
     </tbody>""")
 
@@ -123,6 +136,8 @@ def render(deal: dict, wbs: dict) -> str:
     role_th = "".join(
         f'<th class="num" title="{esc(role_names.get(r, ""))}">{esc(r)}</th>' for r in roles)
     role_tf = "".join(f"<td>{fmt_h(role_tot[r])}</td>" for r in roles)
+    opt_note = f" · опции вне итога: {fmt_h(opt_grand)} ч" if opt_grand else ""
+    tf_label = "Итого по ролям (без опций)" if opt_grand else "Итого по ролям"
 
     body = f"""
   <p class="legend">{legend}</p>
@@ -130,7 +145,7 @@ def render(deal: dict, wbs: dict) -> str:
     <button class="btn btn-sm" onclick="toggleAll(true)">Развернуть</button>
     <button class="btn btn-sm" onclick="toggleAll(false)">Свернуть</button>
     <button class="btn btn-sm" id="tips-btn">Как работать?</button>
-    <span class="ms-auto text-secondary">Итого: <b class="text-dark">{fmt_h(grand)} ч</b></span>
+    <span class="ms-auto text-secondary">Итого: <b class="text-dark">{fmt_h(grand)} ч</b>{opt_note}</span>
   </div>
   <div class="alert alert-info" id="tips" hidden>
     <ul>
@@ -147,7 +162,7 @@ def render(deal: dict, wbs: dict) -> str:
       <th>Пакет работ</th><th>Основание</th>{role_th}<th class="num">Σ</th><th class="num"></th>
     </tr></thead>
     {"".join(bodies)}
-    <tfoot><tr><td colspan="2">Итого по ролям</td>{role_tf}<td>{fmt_h(grand)}</td><td></td></tr></tfoot>
+    <tfoot><tr><td colspan="2">{tf_label}</td>{role_tf}<td>{fmt_h(grand)}</td><td></td></tr></tfoot>
   </table>
   </div></div>
   {savebar()}"""

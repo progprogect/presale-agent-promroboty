@@ -54,6 +54,17 @@ tr.stageio td{background:var(--tblr-bg-surface-tertiary);padding:10px 12px}
 #tips{font-size:12.5px}
 #tips ul{margin:4px 0 0;padding-left:18px}
 #tips li{margin:2px 0}
+.ctx{border:1px solid var(--tblr-border-color);border-radius:6px;background:var(--tblr-bg-surface);
+  padding:10px 14px;margin:0 0 12px;font-size:12.5px}
+.ctx p{margin:0 0 6px}
+.ctx b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary);margin-bottom:2px}
+.ctx ul{margin:0;padding-left:18px}
+.ctx li{margin:1px 0}
+.ctx .note{margin:6px 0 0;color:var(--tblr-secondary);font-size:11.5px}
+tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size:11.5px;font-weight:600;
+  padding:5px 10px;border-top:2px solid var(--tblr-border-color)}
+.rng{display:block;font-size:10.5px;color:var(--tblr-secondary);font-weight:400}
 .savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
 .savebar input{max-width:200px}
 .savebar .status{font-size:12px;color:var(--tblr-secondary)}
@@ -66,6 +77,23 @@ ICON_MIC = ('<svg class="icon-14" viewBox="0 0 24 24" fill="none" stroke="curren
             'stroke-linecap="round" stroke-linejoin="round">'
             '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>'
             '<path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>')
+
+
+def context_block(deal: dict, active: str) -> str:
+    """Шапка для валидатора: суть проекта и вопросы к странице (поля context/questions/notes в deal.yaml)."""
+    ctx = deal.get("context")
+    qs = (deal.get("questions") or {}).get(active) or []
+    note = (deal.get("notes") or {}).get(active)
+    if not (ctx or qs or note):
+        return ""
+    parts = []
+    if ctx:
+        parts.append(f"<p>{esc(ctx)}</p>")
+    if qs:
+        parts.append("<b>Что проверяем</b><ul>" + "".join(f"<li>{esc(q)}</li>" for q in qs) + "</ul>")
+    if note:
+        parts.append(f'<p class="note">{esc(note)}</p>')
+    return f'<div class="ctx">{"".join(parts)}</div>'
 
 
 def shell(deal: dict, page_title: str, active: str, body: str, script: str = "") -> str:
@@ -101,6 +129,7 @@ def shell(deal: dict, page_title: str, active: str, body: str, script: str = "")
              for p, n in (("wbs", "Декомпозиция работ"), ("bom", "Компоненты"))
              if p in deal.get("pages", ["wbs", "bom"]))}
   </ul>
+  {context_block(deal, active)}
   {body}
 </div>
 <script>{script}</script>

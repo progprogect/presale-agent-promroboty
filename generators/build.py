@@ -62,6 +62,9 @@ def build_all() -> list[str]:
             io_file = deal_dir / "stage_io.yaml"
             if io_file.exists():
                 io = yaml.safe_load(io_file.read_text()) or {}
+                unknown = set(io) - {st["name"] for st in wbs["stages"]}
+                if unknown:
+                    print(f"! stage_io.yaml ({deal['slug']}): нет такого этапа: {sorted(unknown)}")
                 for st in wbs["stages"]:
                     st.update(io.get(st["name"], {}))
             (out / "wbs.html").write_text(wbs_page.render(deal, wbs))
