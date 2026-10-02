@@ -146,21 +146,31 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
             sys.exit(f"не удалось сопоставить сроки: {j} из {len(items)}")
     out, lo_t, hi_t, tot = [], 0.0, 0.0, 0.0
     for idx, it in enumerate(items):
+        # группа: явное поле item приоритетно; иначе (формат tor-bal) выводится из why,
+        # и тогда why — это группа, а не пояснение
+        explicit_group = it.get("group")
         new = {
             "pos": it["pos"], "model": it["model"], "qty": str(it["qty"]),
-            "group": re.split(r"\s+\(", it["why"], maxsplit=1)[0].strip() if it.get("why") else None,
+            "group": explicit_group or (
+                re.split(r"\s+\(", it["why"], maxsplit=1)[0].strip() if it.get("why") else None),
+            "why": it.get("why") if explicit_group else None,
             "price": it.get("price"), "conf": it.get("conf"), "price_note": it.get("price_note", ""),
         }
-        m = RANGE.search(it.get("price_note", ""))
-        if m:
-            lo = _num(m.group(1))
-            hi = _num(m.group(2)) if m.group(2) else lo
-            new["range"] = [int(lo) if lo == int(lo) else lo, int(hi) if hi == int(hi) else hi]
+        if it.get("range"):
+            new["range"] = list(it["range"])
+            lo, hi = it["range"]
+        else:
+            m = RANGE.search(it.get("price_note", ""))
+            if m:
+                lo = _num(m.group(1))
+                hi = _num(m.group(2)) if m.group(2) else lo
+                new["range"] = [int(lo) if lo == int(lo) else lo, int(hi) if hi == int(hi) else hi]
+            else:
+                lo = hi = it.get("price") or 0
+        if new.get("range"):
             price = it.get("price") or 0
             if not (lo - 1 <= price <= hi + 1):
                 print(f"  ! цена вне вилки: {it['pos'][:50]} {price} не в {lo}–{hi}")
-        else:
-            lo = hi = it.get("price") or 0
         lo_t += lo
         hi_t += hi
         tot += it.get("price") or 0
@@ -173,8 +183,13 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
             new["conf_label"] = "оценка · есть ориентир"
         else:
             new["conf_label"] = "оценка · RFQ"
+        if it.get("conf_label"):
+            new["conf_label"] = it["conf_label"]
         if idx in weeks:
             new["weeks"] = weeks[idx]
+        elif it.get("weeks"):
+            new["weeks"] = list(it["weeks"])
+            weeks[idx] = new["weeks"]
         out.append({k: v for k, v in new.items() if v not in (None, "")})
     out = cl.walk(out)
     if rules.get("bom_totals"):
