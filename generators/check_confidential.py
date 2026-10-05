@@ -19,6 +19,8 @@ from pathlib import Path
 
 import yaml
 
+from .common import PAGE_IDS
+
 BASE = Path(__file__).resolve().parent.parent
 MONEY = [r"себестоим", r"\bмарж", r"\bставк", r"(?<!без )\bнаценк", r"\bрентабельн", r"\bприбыл",
          r"BYN\s*/\s*(?:ч\b|час)", r"руб\w*\s*/\s*(?:ч\b|час)", r"\bоклад", r"зарплат"]
@@ -69,13 +71,16 @@ def main() -> None:
     rules = yaml.safe_load(Path(args[0]).read_text(encoding="utf-8"))
     slug, forbid = rules["slug"], rules.get("forbid") or []
     allowed = allowed_numbers(slug)
+    built = [p for p in PAGE_IDS if (BASE / "build" / slug / f"{p}.html").exists()]
+    if not built:
+        sys.exit(f"страницы сделки {slug} не собраны — сначала python -m generators.build")
     texts = {f"build/{slug}/{p}.html": (BASE / "build" / slug / f"{p}.html").read_text(encoding="utf-8")
-             for p in ("wbs", "bom")}
+             for p in built}
     texts["build/deals.json"] = (BASE / "build" / "deals.json").read_text(encoding="utf-8")
     texts["build/index.html"] = (BASE / "build" / "index.html").read_text(encoding="utf-8")
     if "--live" in sys.argv:
         host = sys.argv[sys.argv.index("--live") + 1].rstrip("/")
-        for path in (f"/d/{slug}/wbs", f"/d/{slug}/bom", "/api/deals", "/"):
+        for path in [f"/d/{slug}/{p}" for p in built] + ["/api/deals", "/"]:
             texts[host + path] = fetch(host + path)
     problems = []
     for name, text in texts.items():

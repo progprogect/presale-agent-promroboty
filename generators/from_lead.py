@@ -12,6 +12,9 @@ rules.yaml лежит В ПАПКЕ СДЕЛКИ (не в репозитории
   bom_totals:  bom.totals.json (необязательно) — сверка суммы вилок
   bom_variant: вариант в bom_source/bom_totals (по умолчанию V2)
   lock_groups: группы WBS, закрытые от правок валидаторов (CV/ПО — оценивает Микита)
+  pass_specs:  {страница: путь к спеке в папке сделки} — questions, process, solution, proposal, package;
+               переносятся как есть, через ту же чистку текстов (вопросы с internal: true отбрасываются)
+  files:       {img: [...], proposal: [...]} — файлы сделки в карточку (кадры компоновки, собранное ТКП)
   replace:     [[regex, замена], ...] — замены текста (имена, коды чужих сделок, внутренние слова)
   forbid:      регулярные выражения, которых не должно остаться в результате (без учёта регистра)
 
@@ -21,6 +24,7 @@ rules.yaml лежит В ПАПКЕ СДЕЛКИ (не в репозитории
 """
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -202,6 +206,33 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
                             "weeks": len(weeks)}
 
 
+def convert_pass(rules: dict, base: Path, cl: Cleaner) -> list[tuple]:
+    """Спеки, которые идут на портал как есть: вводные, процесс, решение, ТКП, обзор."""
+    done = []
+    for page, rel in (rules.get("pass_specs") or {}).items():
+        spec = _load(_p(base, rel))
+        if page == "questions":
+            spec["questions"] = [q for q in spec["questions"] if not q.get("internal")]
+        n = next((len(spec[k]) for k in ("questions", "steps", "nodes", "sections") if k in spec), 0)
+        done.append((page, cl.walk(spec), n))
+    return done
+
+
+def copy_files(rules: dict, base: Path, out_dir: Path) -> int:
+    """Кадры компоновки и файл собранного ТКП — в папку карточки."""
+    n = 0
+    for folder, items in (rules.get("files") or {}).items():
+        dst = out_dir / folder
+        dst.mkdir(parents=True, exist_ok=True)
+        for rel in items:
+            src = _p(base, rel)
+            if not src.is_file():
+                sys.exit(f"нет файла для карточки: {src}")
+            shutil.copy2(src, dst / src.name)
+            n += 1
+    return n
+
+
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
@@ -227,6 +258,18 @@ def main() -> None:
 
     (out_dir / "wbs.yaml").write_text(head + wtxt, encoding="utf-8")
     (out_dir / "bom.yaml").write_text(head + btxt, encoding="utf-8")
+
+    extra = convert_pass(rules, base, cl)
+    for page, spec, n in extra:
+        txt = dump(spec)
+        bad_x = [w for w in (rules.get("forbid") or []) if re.search(w, txt, re.I)]
+        if bad_x:
+            sys.exit(f"в спеке {page} остались запрещённые слова: {bad_x}")
+        (out_dir / f"{page}.yaml").write_text(head + txt, encoding="utf-8")
+        print(f"{page}: перенесено, записей {n}")
+    n_files = copy_files(rules, base, out_dir)
+    if n_files:
+        print(f"Файлы карточки: скопировано {n_files}")
     print(f"WBS: {ws['packages']} пакетов, {ws['hours']:.0f} ч; опции: {ws['opt_packages']} пак., "
           f"{ws['opt_hours']:.0f} ч")
     print(f"BOM: {bs['items']} позиций, сумма {bs['total']:.0f}, вилка {bs['lo']:.0f}–{bs['hi']:.0f} BYN, "

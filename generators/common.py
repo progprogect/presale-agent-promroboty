@@ -4,6 +4,18 @@
 """
 from html import escape as esc  # noqa: F401  (реэкспорт для генераторов)
 
+# Карточка проекта: порядок вкладок и подписи. Вкладка показывается, если у сделки есть её спека.
+PAGES = [
+    ("package", "Обзор"),
+    ("questions", "Вводные"),
+    ("process", "Процесс"),
+    ("solution", "Решение"),
+    ("wbs", "Декомпозиция"),
+    ("bom", "Компоненты"),
+    ("proposal", "ТКП"),
+]
+PAGE_IDS = [p for p, _ in PAGES]
+
 # Небольшие правки поверх Tabler: плотнее таблицы, элементы матрицы WBS.
 EXTRA_CSS = """
 .wrap{max-width:1180px;margin:0 auto;padding:18px 16px 56px}
@@ -68,6 +80,64 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
 .savebar input{max-width:200px}
 .savebar .status{font-size:12px;color:var(--tblr-secondary)}
+
+/* Вводные: вопрос = карточка-строка с вердиктом валидатора */
+.qrow{border-top:1px solid var(--tblr-border-color);padding:9px 0}
+.qrow:first-child{border-top:0}
+.qhead{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.qhead .qid{font-weight:600;font-size:12px;color:var(--tblr-secondary);min-width:30px}
+.qhead .qt{font-weight:600;font-size:13px}
+.qbody{margin:3px 0 0 38px;font-size:12.5px}
+.qbody .ans{margin:0}
+.qbody .meta{color:var(--tblr-secondary);font-size:11.5px;margin:2px 0 0}
+.qbody .meta b{color:var(--tblr-body-color);font-weight:600}
+.verdict{display:flex;gap:10px;align-items:center;margin:5px 0 0 38px;flex-wrap:wrap}
+.verdict label{font-size:12px;display:inline-flex;gap:4px;align-items:center;cursor:pointer;margin:0}
+
+/* Процесс: дорожки участников, шаги по колонкам потока */
+.lanes{display:grid;gap:6px;overflow-x:auto;padding-bottom:4px}
+.lane-name{display:flex;align-items:center;font-size:11.5px;font-weight:600;padding:6px 8px;
+  border-radius:5px;background:var(--tblr-bg-surface-secondary);min-width:120px}
+.lane-name small{display:block;font-weight:400;color:var(--tblr-secondary);font-size:10.5px}
+.pstep{border:1px solid var(--tblr-border-color);border-radius:5px;padding:5px 7px;font-size:11.5px;
+  background:var(--tblr-bg-surface);min-width:132px}
+.pstep .n{font-weight:600;font-size:10.5px;color:var(--tblr-secondary)}
+.pstep .t{font-weight:600;display:block;margin:1px 0}
+.pstep .d{color:var(--tblr-secondary);font-size:10.5px;display:block}
+.pstep .tm{display:inline-block;margin-top:3px;font-size:10.5px;font-weight:600}
+.pstep.par{border-style:dashed}
+.pstep.ours{border-color:var(--tblr-primary)}
+.pstep.client{border-color:var(--tblr-orange);background:var(--tblr-orange-lt)}
+.lane-cell{display:flex;align-items:center}
+.cyc{font-size:11.5px;color:var(--tblr-secondary);margin:6px 0 0;padding-left:2px}
+.keyfig{font-size:12.5px;font-weight:600;margin:8px 0 0}
+
+/* Решение: лист на одну страницу */
+.sheet{font-size:12.5px}
+.sheet h3{font-size:13px;margin:14px 0 5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary)}
+.sheet h3:first-child{margin-top:0}
+.sheet p{margin:0 0 6px}
+.sheet table{font-size:12px;width:100%}
+.sheet table td,.sheet table th{padding:5px 8px;vertical-align:top}
+.sheet ul{margin:0;padding-left:18px}
+.sheet li{margin:1px 0}
+.sheet .shots{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 0}
+.sheet .shots figure{margin:0;max-width:300px}
+.sheet .shots img{width:100%;border-radius:5px;border:1px solid var(--tblr-border-color)}
+.sheet .shots figcaption{font-size:10.5px;color:var(--tblr-secondary);margin-top:2px}
+
+/* Обзор карточки */
+.secrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--tblr-border-color);
+  font-size:13px}
+.secrow:first-child{border-top:0}
+.secrow .nm{font-weight:600;min-width:140px}
+.secrow .st{margin-left:auto;font-size:11.5px;color:var(--tblr-secondary);text-align:right}
+.gate{border:1px solid var(--tblr-border-color);border-radius:6px;padding:12px 14px;margin-top:14px;
+  background:var(--tblr-bg-surface)}
+.gate h3{font-size:13px;margin:0 0 4px}
+.gate p{font-size:12.5px;margin:0 0 8px;color:var(--tblr-secondary)}
+.embed{width:100%;height:78vh;border:1px solid var(--tblr-border-color);border-radius:6px}
 """
 
 ICON_COMMENT = ('<svg class="icon-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -126,8 +196,7 @@ def shell(deal: dict, page_title: str, active: str, body: str, script: str = "")
   </div>
   <ul class="nav nav-pills mb-2" style="gap:4px">
     {"".join(f'<li class="nav-item">{tab(p, n)}</li>'
-             for p, n in (("wbs", "Декомпозиция работ"), ("bom", "Компоненты"))
-             if p in deal.get("pages", ["wbs", "bom"]))}
+             for p, n in PAGES if p in deal.get("pages", PAGE_IDS))}
   </ul>
   {context_block(deal, active)}
   {body}
@@ -147,7 +216,7 @@ function snap(v,dir){
   if(v<=1)return 0;
   for(let i=FIB.length-1;i>=0;i--)if(FIB[i]<v)return FIB[i];return 0;
 }
-const edits={hours:{},comments:{},alts:{},added:[]};
+const edits={hours:{},comments:{},alts:{},fields:{},added:[]};
 const statusEl=document.getElementById('savestatus');
 function setDirty(){statusEl.textContent='есть несохранённые правки';}
 function rowSum(tr){
@@ -195,6 +264,16 @@ document.querySelectorAll('input[data-akey]').forEach(t=>{
   t.oninput=()=>{if(t.value.trim())edits.alts[t.dataset.akey]=t.value.trim();
     else delete edits.alts[t.dataset.akey];setDirty();};
 });
+// вердикты валидатора: радио «согласен / не согласен», селекты
+document.querySelectorAll('[data-fkey]').forEach(el=>{
+  el.onchange=()=>{
+    const k=el.dataset.fkey;
+    if(el.type==='radio'){if(el.checked)edits.fields[k]=el.value;}
+    else if(el.value)edits.fields[k]=el.value;else delete edits.fields[k];
+    const row=el.closest('.qrow');if(row)row.dataset.verdict=edits.fields[k]||'';
+    setDirty();
+  };
+});
 // --- добавление новых задач валидатором ---
 const ROLES=(window.PAGE_ROLES||[]);
 function addTaskRow(stageIdx, btnRow, data){
@@ -234,7 +313,10 @@ function resetAll(){
   document.querySelectorAll('textarea[data-ckey]').forEach(t=>t.value='');
   document.querySelectorAll('input[data-akey]').forEach(t=>t.value='');
   document.querySelectorAll('tr.newtask').forEach(t=>t.remove());
-  edits.hours={};edits.comments={};edits.alts={};edits.added=[];
+  document.querySelectorAll('[data-fkey]').forEach(el=>{
+    if(el.type==='radio')el.checked=false;else el.value='';
+    const row=el.closest('.qrow');if(row)row.dataset.verdict='';});
+  edits.hours={};edits.comments={};edits.alts={};edits.fields={};edits.added=[];
 }
 function applyLayer(i){
   resetAll();
@@ -249,6 +331,11 @@ function applyLayer(i){
       if(t){t.value=v;edits.comments[k]=v;const row=t.closest('tr.crow');if(row)row.hidden=false;}});
     Object.entries(L.alts||{}).forEach(([k,v])=>{
       const t=document.querySelector(`input[data-akey="${k}"]`);if(t){t.value=v;edits.alts[k]=v;}});
+    Object.entries(L.fields||{}).forEach(([k,v])=>{
+      const els=document.querySelectorAll(`[data-fkey="${k}"]`);
+      els.forEach(el=>{if(el.type==='radio')el.checked=(el.value===v);else el.value=v;
+        const row=el.closest('.qrow');if(row)row.dataset.verdict=v;});
+      if(els.length)edits.fields[k]=v;});
     (L.added||[]).forEach(a=>{
       const b=document.querySelector(`.add-task[data-stage="${a.stage}"]`);
       const entry={stage:a.stage,name:a.name,hours:{...a.hours}};edits.added.push(entry);
@@ -332,15 +419,16 @@ document.querySelectorAll('.mic-btn').forEach(b=>{
 """
 
 
-def savebar() -> str:
-    return """
+def savebar(done_label: str = "Проверка завершена", note: str = "") -> str:
+    hint = note or "правки лягут слоем поверх нашей версии — ничего не затирается"
+    return f"""
   <div class="savebar">
     <input id="reviewer" class="form-control form-control-sm" placeholder="Ваше имя">
     <button id="btn-save" class="btn btn-sm">Сохранить</button>
-    <button id="btn-done" class="btn btn-primary btn-sm">Проверка завершена</button>
+    <button id="btn-done" class="btn btn-primary btn-sm">{done_label}</button>
     <span class="ms-auto d-flex gap-2 align-items-center">
       <select id="versel" class="form-select form-select-sm" style="width:auto" title="Версии правок"></select>
       <button id="btn-restore" class="btn btn-sm" hidden title="Выбранная версия будет сохранена как новая — ничего не теряется">Восстановить как новую</button>
     </span>
-    <span class="status" id="savestatus" style="flex-basis:100%">правки лягут слоем поверх нашей версии — ничего не затирается</span>
+    <span class="status" id="savestatus" style="flex-basis:100%">{hint}</span>
   </div>"""

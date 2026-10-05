@@ -15,7 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from generators.build import BUILD, build_all
+from generators.build import BUILD, DEALS, build_all
+from generators.common import PAGE_IDS
 
 BASE_DIR = Path(__file__).resolve().parent
 RUNTIME = Path(os.environ.get("RUNTIME_DIR", BASE_DIR / "runtime"))
@@ -77,7 +78,7 @@ def _add_update(slug: str, page: str, entry: dict) -> int:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.4"}
+    return {"status": "ok", "version": "0.5"}
 
 
 @app.get("/")
@@ -85,14 +86,41 @@ def index() -> FileResponse:
     return FileResponse(BUILD / "index.html")
 
 
+@app.get("/d/{slug}")
+@app.get("/d/{slug}/")
+def deal_card(slug: str) -> FileResponse:
+    """Корень карточки проекта — страница «Обзор»."""
+    return deal_page(slug, "package")
+
+
 @app.get("/d/{slug}/{page}")
 def deal_page(slug: str, page: str) -> FileResponse:
-    if page not in ("wbs", "bom"):
+    if page not in PAGE_IDS:
         raise HTTPException(404)
     path = BUILD / slug / f"{page}.html"
     if not path.exists():
         raise HTTPException(404)
     return FileResponse(path)
+
+
+def _deal_file(slug: str, folder: str, name: str) -> FileResponse:
+    """Файл сделки (кадр компоновки, собранное ТКП) из data/deals/<slug>/<folder>/."""
+    if "/" in slug or ".." in slug or "/" in name or ".." in name:
+        raise HTTPException(404)
+    path = DEALS / slug / folder / name
+    if not path.is_file():
+        raise HTTPException(404)
+    return FileResponse(path)
+
+
+@app.get("/d/{slug}/img/{name}")
+def deal_img(slug: str, name: str) -> FileResponse:
+    return _deal_file(slug, "img", name)
+
+
+@app.get("/d/{slug}/proposal/{name}")
+def deal_proposal_file(slug: str, name: str) -> FileResponse:
+    return _deal_file(slug, "proposal", name)
 
 
 class Review(BaseModel):
@@ -101,11 +129,12 @@ class Review(BaseModel):
     hours: dict[str, float] = {}
     comments: dict[str, str] = {}
     alts: dict[str, str] = {}
+    fields: dict[str, str] = {}
     added: list[dict] = []
 
 
 def _check_ref(slug: str, page: str) -> None:
-    if page not in ("wbs", "bom") or "/" in slug or ".." in slug:
+    if page not in PAGE_IDS or "/" in slug or ".." in slug:
         raise HTTPException(404)
 
 
@@ -118,6 +147,22 @@ def deals() -> FileResponse:
 def get_review(slug: str, page: str) -> JSONResponse:
     _check_ref(slug, page)
     return JSONResponse(_get_updates(slug, page))
+
+
+@app.get("/api/d/{slug}/status")
+def deal_status(slug: str) -> JSONResponse:
+    """Состояние разделов карточки: сколько слоёв правок и кто завершил проверку."""
+    if "/" in slug or ".." in slug:
+        raise HTTPException(404)
+    out = {}
+    for page in PAGE_IDS:
+        ups = _get_updates(slug, page)["updates"]
+        if not ups:
+            continue
+        done = [u for u in ups if u.get("done")]
+        out[page] = {"updates": len(ups), "done_by": done[-1]["reviewer"] if done else None,
+                     "ts": ups[-1].get("ts")}
+    return JSONResponse(out)
 
 
 @app.post("/api/d/{slug}/review/{page}")
