@@ -65,11 +65,14 @@ td,th{padding:6px 8px;vertical-align:middle}
   </div></div>
 
   <div class="card"><div class="card-body">
-    <h3>Шаблон приглашения</h3>
+    <h3>Шаблоны писем</h3>
     <div class="muted" style="margin-bottom:6px">Плейсхолдеры: {name} {deal_title} {deal_code}
-      {role_name} {link} {kp_note}. Новые назначения используют сохранённый текст; письмо шлёт
-      локальный агент автоматически.</div>
+      {role_name} {link} {kp_note} {waiting}. Письма шлёт локальный агент автоматически.</div>
     <div style="display:flex;flex-direction:column;gap:6px;max-width:760px">
+      <select id="tpl-key" class="form-select form-select-sm" style="max-width:280px" onchange="showTpl()">
+        <option value="tpl_invite">Приглашение (при назначении)</option>
+        <option value="tpl_remind">Напоминание (кнопка 🔔 / «Напомнить ждущим»)</option>
+      </select>
       <input id="tpl-subject" class="form-control form-control-sm" placeholder="Тема">
       <textarea id="tpl-body" class="form-control" rows="9" style="font-size:12.5px"></textarea>
       <div><button class="btn btn-primary btn-sm" onclick="saveTpl()">Сохранить шаблон</button></div>
@@ -112,11 +115,14 @@ function render(){
   // пайплайн
   const byDeal={};D.assignments.forEach(a=>{(byDeal[a.slug]=byDeal[a.slug]||[]).push(a);});
   const pid2p=Object.fromEntries(D.people.map(p=>[p.id,p]));
-  let h='<tr><th>Проект</th><th>Статус</th>'+Object.values(PAGE_NAMES).map(n=>'<th class="pg">'+n+'</th>').join('')+'<th>Люди</th></tr>';
+  const NEXT_CLS={admin:'bg-purple-lt',gate:'bg-blue-lt',wait:'bg-yellow-lt',appr:'bg-orange-lt',go:'bg-green-lt'};
+  let h='<tr><th>Проект</th><th>Дальше</th>'+Object.values(PAGE_NAMES).map(n=>'<th class="pg">'+n+'</th>').join('')+'<th>Люди</th></tr>';
   for(const d of D.deals){
     const st=D.status[d.slug]||{};
-    h+='<tr><td><a href="/d/'+d.slug+'/" target="_blank"><b>'+d.title+'</b></a><div class="muted">'+d.code+' · '+d.version+'</div></td>';
-    h+='<td><span class="badge bg-yellow-lt">'+d.status+'</span></td>';
+    const nx=(D.next||{})[d.slug];
+    h+='<tr><td><a href="/d/'+d.slug+'/" target="_blank"><b>'+d.title+'</b></a><div class="muted">'+d.code+' · '+d.version+' · '+d.status+'</div></td>';
+    h+='<td>'+(nx?'<span class="badge '+(NEXT_CLS[nx.kind]||'bg-secondary-lt')+'">'+nx.text+'</span>':'')+
+       (nx&&(nx.kind==='wait'||nx.kind==='appr')?'<div><button class="btn btn-sm mt-1" onclick="remind(\''+d.slug+'\')">Напомнить ждущим</button></div>':'')+'</td>';
     for(const p of Object.keys(PAGE_NAMES)){
       if(!(d.pages||[]).includes(p)){h+='<td class="pg b-none">·</td>';continue;}
       const s=st[p];
@@ -124,9 +130,14 @@ function render(){
       else if(s.done_by)h+='<td class="pg b-done" title="'+s.done_by+'">✓ '+s.done_by.split(' ')[0]+'</td>';
       else h+='<td class="pg b-upd">'+s.updates+'!</td>';
     }
+    const apr=((D.approvals||{})[d.slug]||{});
+    const okNames=new Set((apr.package||[]).map(x=>x.by));
     const chips=(byDeal[d.slug]||[]).map(a=>{const p=pid2p[a.person_id]||{name:'?'};
-      return '<span class="pers" title="'+(D.roles[a.role]?.[0]||a.role)+(a.kp?' · доступ к ТКП':'')+'">'+p.name+
-        ' <small class="muted">'+a.role+'</small><span class="x" onclick="unassign('+a.id+')" title="Снять">×</span></span>';}).join('');
+      const ok=okNames.has(p.name);
+      return '<span class="pers" title="'+(D.roles[a.role]?.[0]||a.role)+(a.kp?' · доступ к ТКП':'')+(ok?' · согласовал':'')+'">'+
+        (ok?'✓ ':'')+p.name+' <small class="muted">'+a.role+'</small>'+
+        '<span class="x" onclick="remind(\''+d.slug+'\','+a.person_id+')" title="Напомнить письмом">🔔</span>'+
+        '<span class="x" onclick="unassign('+a.id+')" title="Снять">×</span></span>';}).join('');
     h+='<td>'+(chips||'<span class="muted">никто</span>')+'</td></tr>';
   }
   document.getElementById('pipe').innerHTML=h;
@@ -152,15 +163,23 @@ function render(){
     '<label><input type="checkbox" id="as-kp"> <b>доступ к ТКП</b></label>';
 }
 async function load(){D=await api('/api/admin/overview');render();}
-async function loadTpl(){
-  const t=(await api('/api/admin/templates')).tpl_invite;
+let TPLS={};
+async function loadTpl(){TPLS=await api('/api/admin/templates');showTpl();}
+function showTpl(){
+  const t=TPLS[v('tpl-key')]||{subject:'',body:''};
   document.getElementById('tpl-subject').value=t.subject;
   document.getElementById('tpl-body').value=t.body;
 }
 async function saveTpl(){
-  await api('/api/admin/templates/tpl_invite',{method:'POST',
-    body:JSON.stringify({subject:v('tpl-subject'),body:document.getElementById('tpl-body').value})});
-  toast('шаблон сохранён — действует на новые назначения');
+  const k=v('tpl-key');
+  const t={subject:v('tpl-subject'),body:document.getElementById('tpl-body').value};
+  await api('/api/admin/templates/'+k,{method:'POST',body:JSON.stringify(t)});
+  TPLS[k]=t;toast('шаблон сохранён — действует на новые письма');
+}
+async function remind(slug,pid){
+  const r=await api('/api/admin/remind',{method:'POST',
+    body:JSON.stringify({slug,person_id:pid||null})});
+  toast(r.queued.length?('напоминание в очереди: '+r.queued.join(', ')):'напоминать некому — всё проверено');
 }
 async function addPerson(){
   const b={name:v('p-name'),email:v('p-email'),org:v('p-org'),role:v('p-role')};

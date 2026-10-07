@@ -72,8 +72,9 @@ def startup() -> None:
                 id serial PRIMARY KEY, slug text NOT NULL, person_id int NOT NULL,
                 role text NOT NULL, kind text NOT NULL, note text DEFAULT '',
                 ts timestamptz DEFAULT now(), UNIQUE (slug, person_id, kind))""")
-            conn.execute("""INSERT INTO kv (key, value) VALUES ('tpl_invite', %s)
-                ON CONFLICT (key) DO NOTHING""", (json.dumps(TPL_INVITE_DEFAULT, ensure_ascii=False),))
+            for k, v in TPL_DEFAULTS.items():
+                conn.execute("""INSERT INTO kv (key, value) VALUES (%s, %s)
+                    ON CONFLICT (key) DO NOTHING""", (k, json.dumps(v, ensure_ascii=False)))
             conn.commit()
 
 
@@ -279,7 +280,18 @@ TPL_INVITE_DEFAULT = {
 
 Вопросы можно писать прямо в комментариях на странице.""",
 }
-TEMPLATE_KEYS = ("tpl_invite",)
+TPL_REMIND_DEFAULT = {
+    "subject": "Напоминание: проект «{deal_title}» ждёт вашей проверки",
+    "body": """Добрый день!
+
+По проекту «{deal_title}» за вами разделы, которые ещё ждут проверки: {waiting}.
+Ваша персональная страница: {link}
+
+Если что-то мешает закончить (нет данных, непонятно, нужен созвон) — напишите это
+комментарием прямо на странице, нам этого достаточно.""",
+}
+TEMPLATE_KEYS = ("tpl_invite", "tpl_remind")
+TPL_DEFAULTS = {"tpl_invite": TPL_INVITE_DEFAULT, "tpl_remind": TPL_REMIND_DEFAULT}
 
 
 class _SafeMap(dict):
@@ -370,6 +382,46 @@ def admin_page(request: Request) -> FileResponse:
                         headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
 
 
+def _next_step(deal: dict, st: dict, deal_assigns: list, appr: dict) -> dict:
+    """Следующий шаг проекта — система подсказывает, что делать (kind для цвета бейджа)."""
+    pages = [p for p in deal.get("pages", []) if p != "package"]
+    waiting = [p for p in pages if p != "proposal" and not (st.get(p) or {}).get("done_by")]
+    reviewers = [a for a in deal_assigns if a["role"] != "viewer"]
+    if not reviewers:
+        return {"kind": "admin", "text": "назначить проверяющих"}
+    if "questions" in pages and not appr.get("questions_gate"):
+        return {"kind": "gate", "text": "закрыть гейт вводных (delivery)"}
+    if waiting:
+        return {"kind": "wait", "text": "ждём проверок: " +
+                ", ".join(waiting[:4]) + ("…" if len(waiting) > 4 else "")}
+    done_pids = {p["by"] for p in appr.get("package", [])}
+    silent = [a["_name"] for a in reviewers if a["_name"] not in done_pids]
+    if appr.get("final"):
+        if "proposal" in pages:
+            return {"kind": "wait", "text": "ТКП на одобрении"}
+        return {"kind": "go", "text": "пакет принят — собирать ТКП"}
+    if silent:
+        return {"kind": "appr", "text": "ждём согласований: " + ", ".join(silent[:3])}
+    return {"kind": "gate", "text": "delivery принимает пакет"}
+
+
+def _deal_approvals(slug: str) -> dict:
+    with _db() as conn:
+        apps = conn.execute("""SELECT a.kind, a.role, a.ts, p.name
+            FROM approvals a JOIN people p ON p.id=a.person_id
+            WHERE a.slug=%s ORDER BY a.ts""", (slug,)).fetchall()
+    out = {"questions_gate": None, "package": [], "final": None}
+    for kind, role, ts, name in apps:
+        if kind == "questions":
+            out["questions_gate"] = {"by": name, "ts": ts.isoformat(timespec="seconds")}
+        else:
+            e = {"by": name, "role": role, "ts": ts.isoformat(timespec="seconds")}
+            out["package"].append(e)
+            if role == "delivery":
+                out["final"] = e
+    return out
+
+
 @app.get("/api/admin/overview")
 def admin_overview(request: Request) -> JSONResponse:
     _admin_auth(request)
@@ -385,8 +437,9 @@ def admin_overview(request: Request) -> JSONResponse:
         pending = conn.execute("SELECT count(*) FROM events WHERE NOT done").fetchone()[0]
         last = conn.execute("SELECT max(id) FROM events").fetchone()[0] or 0
         ping = conn.execute("SELECT value FROM kv WHERE key='agent_ping'").fetchone()
-    status = {}
-    for slug in deals_map:
+    pid2name = {p["id"]: p["name"] for p in people}
+    status, approvals_all, next_steps = {}, {}, {}
+    for slug, deal in deals_map.items():
         st = {}
         for page in PAGE_IDS:
             ups = _get_updates(slug, page)["updates"]
@@ -395,10 +448,61 @@ def admin_overview(request: Request) -> JSONResponse:
             done = [u for u in ups if u.get("done")]
             st[page] = {"updates": len(ups), "done_by": done[-1]["reviewer"] if done else None}
         status[slug] = st
+        appr = _deal_approvals(slug)
+        approvals_all[slug] = appr
+        da = [{**a, "_name": pid2name.get(a["person_id"], "?")}
+              for a in assigns if a["slug"] == slug]
+        next_steps[slug] = _next_step(deal, st, da, appr)
     return JSONResponse({"deals": list(deals_map.values()), "people": people,
                          "assignments": assigns, "status": status, "roles": ROLES,
+                         "approvals": approvals_all, "next": next_steps,
                          "pages": PAGE_IDS, "events_pending": pending, "events_last": last,
                          "agent_ping": ping[0] if ping else None})
+
+
+class RemindIn(BaseModel):
+    slug: str
+    person_id: int | None = None  # None = всем ждущим по проекту
+
+
+@app.post("/api/admin/remind")
+def admin_remind(request: Request, r: RemindIn) -> dict:
+    _admin_auth(request)
+    _need_db()
+    deal = _deal_titles().get(r.slug, {})
+    st = {}
+    for page in PAGE_IDS:
+        ups = _get_updates(r.slug, page)["updates"]
+        done = [u for u in ups if u.get("done")]
+        st[page] = bool(done)
+    tpl = _kv_get("tpl_remind", TPL_REMIND_DEFAULT)
+    base = os.environ.get("PUBLIC_URL", "https://project.promroboty.by").rstrip("/")
+    labels = {"package": "Обзор", "questions": "Вводные", "process": "Процесс",
+              "solution": "Решение", "schematic": "Схема", "wbs": "Декомпозиция",
+              "bom": "Компоненты", "proposal": "ТКП"}
+    with _db() as conn:
+        rows = conn.execute("""SELECT p.id, p.name, p.email, p.token, a.pages, a.kp
+            FROM assignments a JOIN people p ON p.id=a.person_id
+            WHERE a.slug=%s AND p.active AND a.role != 'viewer'""", (r.slug,)).fetchall()
+    sent = []
+    for pid, name, email, token, pages, kp in rows:
+        if r.person_id and pid != r.person_id:
+            continue
+        avail = [p for p in deal.get("pages", []) if p not in ("package",)
+                 and (p != "proposal" or kp)]
+        my = [p for p in (pages or avail) if p in avail]
+        waiting = [labels.get(p, p) for p in my if not st.get(p)]
+        if not waiting:
+            continue
+        ctx = _SafeMap(name=name, deal_title=deal.get("title", r.slug),
+                       deal_code=deal.get("code", ""), link=f"{base}/u/{token}",
+                       waiting=", ".join(waiting))
+        _add_event("remind", r.slug, {
+            "person": {"name": name, "email": email},
+            "mail": {"to": email, "subject": tpl["subject"].format_map(ctx),
+                     "body": tpl["body"].format_map(ctx)}})
+        sent.append(name)
+    return {"status": "ok", "queued": sent}
 
 
 @app.post("/api/admin/people")
@@ -466,7 +570,7 @@ def admin_assign(request: Request, a: AssignIn) -> dict:
 def admin_templates(request: Request) -> JSONResponse:
     _admin_auth(request)
     _need_db()
-    return JSONResponse({k: _kv_get(k, TPL_INVITE_DEFAULT) for k in TEMPLATE_KEYS})
+    return JSONResponse({k: _kv_get(k, TPL_DEFAULTS[k]) for k in TEMPLATE_KEYS})
 
 
 @app.post("/api/admin/templates/{key}")
