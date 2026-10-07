@@ -136,14 +136,16 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .schfig{overflow-x:auto}
 .schfig svg{display:block;width:100%;height:auto;min-width:700px}
 svg g.pobj,svg g.pnum{cursor:pointer}
-svg g.pobj.hl{filter:drop-shadow(0 0 3px #1f66c4) drop-shadow(0 0 6px rgba(31,102,196,.55))}
-svg g.pnum.hl circle{fill:#1f66c4}
-svg g.pnum.hl text{fill:#fff}
-table.expl{font-size:12.5px}
-table.expl td{vertical-align:top}
-table.expl td.bomref{font-variant-numeric:tabular-nums;color:var(--tblr-secondary);white-space:nowrap}
-tr[data-pos]{cursor:default}
-tr[data-pos].hl>td{background:var(--tblr-blue-lt)}
+svg g.pobj.hl,svg g.pobj.pin{filter:drop-shadow(0 0 3px #1f66c4) drop-shadow(0 0 6px rgba(31,102,196,.55))}
+svg g.pnum.hl circle,svg g.pnum.pin circle{fill:#1f66c4}
+svg g.pnum.hl text,svg g.pnum.pin text{fill:#fff}
+tr[data-row].hl>td,tr[data-row].pin>td{background:var(--tblr-blue-lt)}
+.sref{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;
+  padding:0 3px;border-radius:50%;border:1.2px solid #1f66c4;color:#1f66c4;background:var(--tblr-bg-surface);
+  font:600 10px var(--tblr-font-monospace,monospace);margin:0 4px 2px 0;cursor:pointer;vertical-align:middle}
+tr.hl .sref,tr.pin .sref,.sref.hl,.sref.pin{background:#1f66c4;color:#fff}
+tr.tiersep td{background:var(--tblr-blue-lt);color:var(--tblr-primary);font-size:11.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-top:2px solid var(--tblr-border-color)}
 #postip{position:fixed;pointer-events:none;background:var(--tblr-body-color);color:var(--tblr-bg-surface);
   font-size:12px;padding:4px 9px;border-radius:6px;opacity:0;transition:opacity .12s;z-index:9;max-width:320px}
 

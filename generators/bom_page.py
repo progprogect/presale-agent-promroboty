@@ -36,40 +36,54 @@ def _weeks(w) -> str:
     return str(w[0]) if w[0] == w[1] else f"{w[0]}–{w[1]}"
 
 
-# Перекрёстная подсветка «схема <-> строки состава» + тултип имени позиции.
+# Перекрёстная подсветка «схема <-> строки состава»: наведение — временная, клик — закреплённая
+# (держится после скролла, пока не кликнуть другую позицию, ту же или Esc).
 SCHEMATIC_JS = r"""
 const P2R=window.POS2ROWS||{},POSNAME=window.POSNAME||{},R2P={};
 Object.entries(P2R).forEach(([p,rows])=>rows.forEach(r=>{(R2P[r]=R2P[r]||[]).push(p);}));
 const tip=document.createElement('div');tip.id='postip';document.body.appendChild(tip);
-function hl(sel,on){document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hl',on));}
-function posHL(p,on){
-  hl('[data-pos="'+p+'"]',on);
-  (P2R[p]||[]).forEach(r=>hl('tr[data-row="'+r+'"]',on));
+function posSet(p,cls,on){
+  document.querySelectorAll('[data-pos="'+p+'"]').forEach(el=>el.classList.toggle(cls,on));
+  (P2R[p]||[]).forEach(r=>document.querySelectorAll('tr[data-row="'+r+'"]')
+    .forEach(el=>el.classList.toggle(cls,on)));
 }
+let pinned=null;
+function pin(p,scrollRow){
+  if(pinned)posSet(pinned,'pin',false);
+  if(pinned===p){pinned=null;return;}
+  pinned=p;posSet(p,'pin',true);
+  if(scrollRow){
+    const rows=P2R[p]||[];if(!rows.length)return;
+    const tr=document.querySelector('tr[data-row="'+rows[0]+'"]');if(!tr)return;
+    document.querySelectorAll('tr.grp.closed').forEach(h=>{
+      if(h.dataset.grp===tr.dataset.grp)toggleGroup(h);});
+    tr.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pinned)pin(pinned);});
 let cur=null;
 document.addEventListener('pointerover',e=>{
-  const g=e.target.closest('svg [data-pos]');
-  const tr=e.target.closest('tr[data-row]');
+  const g=e.target.closest('svg [data-pos], .sref');
+  const tr=g?null:e.target.closest('tr[data-row]');
   const key=g?('p'+g.dataset.pos):(tr?('r'+tr.dataset.row):null);
   if(key===cur)return;
-  if(cur){cur[0]==='p'?posHL(cur.slice(1),false):(R2P[cur.slice(1)]||[]).forEach(p=>posHL(p,false));}
+  if(cur){cur[0]==='p'?posSet(cur.slice(1),'hl',false):(R2P[cur.slice(1)]||[]).forEach(p=>posSet(p,'hl',false));}
   cur=key;
-  if(g){posHL(g.dataset.pos,true);
+  if(g){posSet(g.dataset.pos,'hl',true);
     tip.textContent=g.dataset.pos+' — '+(POSNAME[g.dataset.pos]||'');tip.style.opacity=1;}
-  else if(tr&&R2P[tr.dataset.row]){(R2P[tr.dataset.row]).forEach(p=>posHL(p,true));tip.style.opacity=0;}
+  else if(tr&&R2P[tr.dataset.row]){(R2P[tr.dataset.row]).forEach(p=>posSet(p,'hl',true));tip.style.opacity=0;}
   else tip.style.opacity=0;
 });
 document.addEventListener('pointermove',e=>{
   tip.style.left=Math.min(e.clientX+14,innerWidth-340)+'px';
   tip.style.top=(e.clientY+16)+'px';});
 document.querySelectorAll('svg [data-pos]').forEach(g=>{
-  g.addEventListener('click',()=>{
-    const rows=P2R[g.dataset.pos]||[];if(!rows.length)return;
-    const tr=document.querySelector('tr[data-row="'+rows[0]+'"]');if(!tr)return;
-    document.querySelectorAll('tr.grp.closed').forEach(h=>{
-      if(h.dataset.grp===tr.dataset.grp)toggleGroup(h);});
-    tr.scrollIntoView({behavior:'smooth',block:'center'});
-  });
+  g.addEventListener('click',()=>pin(g.dataset.pos,true));
+});
+document.querySelectorAll('.sref').forEach(b=>{
+  b.addEventListener('click',e=>{e.stopPropagation();pin(b.dataset.pos,false);
+    const v=document.querySelector('.schfig svg [data-pos="'+b.dataset.pos+'"]');
+    if(v&&pinned===b.dataset.pos)v.scrollIntoView({behavior:'smooth',block:'center'});});
 });
 """
 
@@ -93,9 +107,9 @@ def _schematic_block(sch: dict) -> tuple[str, str]:
     <div class="schfig">{v["svg"]}</div>
   </div></div>""" for v in views)
     block = f"""
-  <p class="hint">Сверху — схема компоновки: наведите на номер или объект, подсветятся его строки
-  в составе ниже (и наоборот, строка состава подсвечивает позицию на схеме); клик по схеме ведёт
-  к первой строке позиции.</p>
+  <p class="hint">Сверху — схема компоновки: наведение на номер или объект подсвечивает его строки
+  в составе ниже (и наоборот). Клик по схеме закрепляет подсветку и ведёт к строке; синий кружок
+  с номером в строке — эта же позиция на схеме, клик по нему ведёт обратно к схеме. Esc снимает выбор.</p>
   {figs}
   <div class="card mt-2"><div class="card-body py-2">
     <div class="cbox" style="max-width:none">
@@ -111,22 +125,39 @@ def _schematic_block(sch: dict) -> tuple[str, str]:
     return block, js
 
 
+TIER_LABELS = {1: "Основное оборудование", 2: "Обеспечение и вспомогательное",
+               3: "Расходники и ЗИП"}
+
+
 def render(deal: dict, bom: dict) -> str:
     items = bom["items"]
     has_weeks = any(i.get("weeks") for i in items)
     ncols = 7 if has_weeks else 6
 
-    # категории: позиции группируются по полю group в порядке появления
-    groups: list[tuple[str, list[tuple[int, dict]]]] = []
+    # номера позиций схемы у строк состава (обратный маппинг rows -> pos)
+    row2pos: dict[int, list[str]] = {}
+    for p in (bom.get("schematic") or {}).get("positions", []):
+        for r in p.get("rows", []):
+            row2pos.setdefault(r, []).append(str(p["pos"]))
+
+    # категории: позиции группируются по полю group в порядке появления (уже отсортированы по tier)
+    groups: list[tuple[str, int, list[tuple[int, dict]]]] = []
     for i, item in enumerate(items, 1):
         g = item.get("group") or "Прочее"
+        t = item.get("tier", 1)
         if not groups or groups[-1][0] != g:
-            groups.append((g, []))
-        groups[-1][1].append((i, item))
+            groups.append((g, t, []))
+        groups[-1][2].append((i, item))
 
+    tier_labels = {**TIER_LABELS, **{int(k): v for k, v in (bom.get("tier_labels") or {}).items()}}
+    show_tiers = len({t for _, t, _ in groups}) > 1
     rows = []
     total = lo_t = hi_t = 0
-    for gi, (gname, gitems) in enumerate(groups):
+    cur_tier = None
+    for gi, (gname, gtier, gitems) in enumerate(groups):
+        if show_tiers and gtier != cur_tier:
+            cur_tier = gtier
+            rows.append(f'\n      <tr class="tiersep"><td colspan="{ncols}">{esc(tier_labels[gtier])}</td></tr>')
         g_tot = g_lo = g_hi = 0
         g_rows = []
         for i, item in gitems:
@@ -143,9 +174,11 @@ def render(deal: dict, bom: dict) -> str:
                          if conf else "")
             weeks_td = f'<td class="num">{_weeks(item.get("weeks"))}</td>' if has_weeks else ""
             why = f'<span class="res">{esc(item["why"])}</span>' if item.get("why") else ""
+            srefs = "".join(f'<span class="sref" data-pos="{p}" title="Позиция {p} на схеме">{p}</span>'
+                            for p in row2pos.get(i, []))
             g_rows.append(f"""
       <tr data-row="{i}" data-grp="g{gi}">
-        <td class="pkg">{esc(item["pos"])}{why}</td>
+        <td class="pkg">{srefs}{esc(item["pos"])}{why}</td>
         <td>{esc(item["model"])}</td>
         <td class="num">{esc(str(item["qty"]))}</td>
         <td class="num">{_price_cell(price, rng)}</td>

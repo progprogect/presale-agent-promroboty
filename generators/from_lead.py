@@ -157,6 +157,7 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]
         # и тогда why — это группа, а не пояснение
         explicit_group = it.get("group")
         new = {
+            "_src": idx + 1,  # исходный номер строки — для переиндексации после сортировки уровней
             "pos": it["pos"], "model": it["model"], "qty": str(it["qty"]),
             "group": explicit_group or (
                 re.split(r"\s+\(", it["why"], maxsplit=1)[0].strip() if it.get("why") else None),
@@ -199,14 +200,33 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]
             weeks[idx] = new["weeks"]
         out.append({k: v for k, v in new.items() if v not in (None, "")})
     out = cl.walk(out)
+    # уровни значимости категорий: сначала основное, потом обеспечение, потом расходники/ЗИП.
+    # rules.bom_tiers: {aux: [подстроки имён групп], minor: [...]}; не названное — уровень 1.
+    tiers_cfg = rules.get("bom_tiers") or {}
+    def _tier(group: str) -> int:
+        g = (group or "").lower()
+        if any(s.lower() in g for s in tiers_cfg.get("minor", [])):
+            return 3
+        if any(s.lower() in g for s in tiers_cfg.get("aux", [])):
+            return 2
+        return 1
+    for it in out:
+        it["tier"] = _tier(it.get("group", ""))
+    if tiers_cfg:
+        out.sort(key=lambda it: it["tier"])  # stable: внутри уровня порядок сметы сохраняется
+    remap = {it.pop("_src"): k + 1 for k, it in enumerate(out)}
+    code2row = {c: remap[r] for c, r in code2row.items()}
     if rules.get("bom_totals"):
         t = json.loads(_p(base, rules["bom_totals"]).read_text())[rules.get("bom_variant", "V2")]
         # в сумме вилок выгрузки нет двух позиций «не в сумме»; сверяем с допуском 0,5 %
         for name, mine, theirs in (("мин", lo_t, t["min"]), ("макс", hi_t, t["max"])):
             if abs(mine - theirs) > 0.005 * theirs:
                 sys.exit(f"сумма вилок ({name}) не сходится: {mine:.0f} против {theirs:.0f}")
-    return {"items": out}, {"items": len(out), "total": tot, "lo": lo_t, "hi": hi_t,
-                            "weeks": len(weeks)}, code2row
+    res = {"items": out}
+    if rules.get("bom_tier_labels"):
+        res["tier_labels"] = rules["bom_tier_labels"]
+    return res, {"items": len(out), "total": tot, "lo": lo_t, "hi": hi_t,
+                 "weeks": len(weeks)}, code2row
 
 
 def convert_pass(rules: dict, base: Path, cl: Cleaner, code2row: dict | None = None) -> list[tuple]:
