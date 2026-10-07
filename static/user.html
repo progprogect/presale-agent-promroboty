@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Мои проекты · ПромРоботы</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/static/tabler.min.css">
+<style>
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 56px}
+.muted{color:var(--tblr-secondary);font-size:12.5px}
+.proj{margin-bottom:14px}
+.proj .hd{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.pg{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--tblr-border-color);font-size:13.5px}
+.pg:first-of-type{border-top:0}
+.pg .st{margin-left:auto;font-size:12px}
+.st.wait{color:var(--tblr-orange);font-weight:600}
+.st.done{color:var(--tblr-green);font-weight:600}
+</style></head>
+<body><div class="wrap">
+  <h2 class="page-title" id="hello">…</h2>
+  <p class="muted">Ваши проекты и разделы на проверку. Открывайте раздел, правьте и комментируйте —
+  в конце нажмите «Проверка завершена». Ссылки персональные, имя подставится само.</p>
+  <div id="list"></div>
+</div>
+<script>
+const token=location.pathname.split('/').pop();
+(async()=>{
+  const r=await fetch('/api/u/'+token);
+  if(!r.ok){document.getElementById('hello').textContent='Ссылка не действует';return;}
+  const D=await r.json();
+  document.getElementById('hello').textContent=D.name;
+  try{localStorage.setItem('reviewer',D.name);}catch(e){}
+  let h='';
+  for(const p of D.projects){
+    h+='<div class="card proj"><div class="card-body">';
+    h+='<div class="hd"><b>'+p.title+'</b><span class="muted">'+p.code+'</span>'+
+       '<span class="badge bg-azure-lt">'+p.role_name+'</span>'+
+       '<span class="badge bg-yellow-lt" style="margin-left:auto">'+p.status+'</span></div>';
+    for(const pg of p.pages){
+      const s=p.page_status[pg]||{};
+      const st=s.done?'<span class="st done">проверено</span>':'<span class="st wait">ждёт проверки</span>';
+      h+='<div class="pg"><a href="/d/'+p.slug+'/'+pg+'?u='+token+'">'+(D.page_names[pg]||pg)+'</a>'+st+'</div>';
+    }
+    h+='</div></div>';
+  }
+  document.getElementById('list').innerHTML=h||'<p class="muted">Пока нет назначенных проектов.</p>';
+})();
+</script></body></html>

@@ -392,6 +392,11 @@ async function send(done,note){
 document.getElementById('btn-save').onclick=()=>send(false);
 document.getElementById('btn-done').onclick=()=>send(true);
 try{const n=localStorage.getItem('reviewer');if(n)document.getElementById('reviewer').value=n;}catch(e){}
+// персональная ссылка (?u=<токен>): имя валидатора подставляется само
+const uTok=new URLSearchParams(location.search).get('u');
+if(uTok)fetch('/api/u/'+uTok).then(r=>r.ok?r.json():null).then(d=>{
+  if(d&&d.name){const el=document.getElementById('reviewer');
+    if(el)el.value=d.name;try{localStorage.setItem('reviewer',d.name);}catch(e){}}});
 // подсказки
 const tipsBtn=document.getElementById('tips-btn'),tips=document.getElementById('tips');
 if(tipsBtn&&tips){

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Админка · ПромРоботы</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/static/tabler.min.css">
+<style>
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 56px}
+h2{margin:0}
+.pagehead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px}
+.pagehead .chips{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.card{margin-bottom:14px}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--tblr-secondary);margin:0 0 10px}
+table{font-size:13px}
+td,th{padding:6px 8px;vertical-align:middle}
+.pipe td.pg{text-align:center;white-space:nowrap;font-size:11.5px}
+.pipe .b-none{color:var(--tblr-border-color)}
+.pipe .b-upd{color:var(--tblr-orange);font-weight:600}
+.pipe .b-done{color:var(--tblr-green);font-weight:600}
+.pers{display:inline-flex;align-items:center;gap:4px;background:var(--tblr-bg-surface-secondary);
+  border:1px solid var(--tblr-border-color);border-radius:999px;padding:1px 8px;font-size:11.5px;margin:1px}
+.pers .x{cursor:pointer;color:var(--tblr-secondary)}
+.pers .x:hover{color:var(--tblr-red)}
+.linkbox{font-family:monospace;font-size:11px;color:var(--tblr-secondary);cursor:pointer}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.ok{background:var(--tblr-green)} .bad{background:var(--tblr-red)}
+.muted{color:var(--tblr-secondary);font-size:12px}
+.formrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.formrow label{font-size:11px;color:var(--tblr-secondary);display:block;margin-bottom:2px}
+.formrow .form-control,.formrow .form-select{font-size:13px}
+#toast{position:fixed;right:16px;bottom:16px;background:var(--tblr-body-color);color:#fff;
+  padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;z-index:9}
+.pgchk{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}
+.pgchk label{display:inline-flex;gap:3px;align-items:center;margin:0;cursor:pointer}
+</style></head>
+<body><div class="wrap">
+  <div class="pagehead">
+    <h2 class="page-title">Пресейл · админка</h2>
+    <div class="chips">
+      <span id="agent" class="muted"><span class="dot bad"></span>агент: …</span>
+      <span id="queue" class="muted">очередь: …</span>
+      <button class="btn btn-sm" onclick="checkAgent()">Проверить задачи</button>
+      <button class="btn btn-sm" onclick="load()">Обновить</button>
+    </div>
+  </div>
+
+  <div class="card"><div class="card-body">
+    <h3>Пайплайн</h3>
+    <div style="overflow-x:auto"><table class="table table-sm pipe" id="pipe"></table></div>
+    <div class="muted">точка — раздела нет · <span class="b-upd">N!</span> — правок без завершения ·
+      <span class="b-done">✓ имя</span> — проверка завершена</div>
+  </div></div>
+
+  <div class="card"><div class="card-body">
+    <h3>Назначить на проект</h3>
+    <div class="formrow">
+      <div><label>Человек</label><select id="as-person" class="form-select form-select-sm"></select></div>
+      <div><label>Проект</label><select id="as-slug" class="form-select form-select-sm"></select></div>
+      <div><label>Роль в проекте</label><select id="as-role" class="form-select form-select-sm"></select></div>
+      <div style="flex-basis:100%" class="pgchk" id="as-pages"></div>
+      <button class="btn btn-primary btn-sm" onclick="assign()">Назначить и отправить приглашение</button>
+      <span class="muted">письмо готовит и шлёт локальный агент</span>
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-body">
+    <h3>Люди</h3>
+    <table class="table table-sm" id="people"></table>
+    <div class="formrow">
+      <div><label>Имя</label><input id="p-name" class="form-control form-control-sm" placeholder="Имя Фамилия"></div>
+      <div><label>Email</label><input id="p-email" class="form-control form-control-sm" placeholder="name@mail.com"></div>
+      <div><label>Организация</label><input id="p-org" class="form-control form-control-sm" placeholder="необязательно"></div>
+      <div><label>Роль по умолчанию</label><select id="p-role" class="form-select form-select-sm"></select></div>
+      <button class="btn btn-primary btn-sm" onclick="addPerson()">Добавить</button>
+    </div>
+  </div></div>
+</div>
+<div id="toast"></div>
+<script>
+let D=null;
+const PAGE_NAMES={package:'Обзор',questions:'Вводные',process:'Процесс',solution:'Решение',
+  wbs:'Декомпозиция',bom:'Компоненты',proposal:'ТКП'};
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.opacity=1;
+  setTimeout(()=>e.style.opacity=0,2500);}
+async function api(path,opts){
+  const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok){toast('ошибка: '+r.status+' '+(await r.text()).slice(0,120));throw 0;}
+  return r.json();
+}
+function agoMin(iso){return Math.round((Date.now()-new Date(iso).getTime())/60000);}
+function render(){
+  const ag=document.getElementById('agent');
+  if(D.agent_ping&&agoMin(D.agent_ping.ts)<3){
+    ag.innerHTML='<span class="dot ok"></span>агент онлайн';
+  }else{
+    ag.innerHTML='<span class="dot bad"></span>агент: '+(D.agent_ping?('молчит '+agoMin(D.agent_ping.ts)+' мин'):'не подключался');
+  }
+  document.getElementById('queue').textContent='очередь: '+D.events_pending+' необработанных';
+  // пайплайн
+  const byDeal={};D.assignments.forEach(a=>{(byDeal[a.slug]=byDeal[a.slug]||[]).push(a);});
+  const pid2p=Object.fromEntries(D.people.map(p=>[p.id,p]));
+  let h='<tr><th>Проект</th><th>Статус</th>'+Object.values(PAGE_NAMES).map(n=>'<th class="pg">'+n+'</th>').join('')+'<th>Люди</th></tr>';
+  for(const d of D.deals){
+    const st=D.status[d.slug]||{};
+    h+='<tr><td><a href="/d/'+d.slug+'/" target="_blank"><b>'+d.title+'</b></a><div class="muted">'+d.code+' · '+d.version+'</div></td>';
+    h+='<td><span class="badge bg-yellow-lt">'+d.status+'</span></td>';
+    for(const p of Object.keys(PAGE_NAMES)){
+      if(!(d.pages||[]).includes(p)){h+='<td class="pg b-none">·</td>';continue;}
+      const s=st[p];
+      if(!s)h+='<td class="pg muted">0</td>';
+      else if(s.done_by)h+='<td class="pg b-done" title="'+s.done_by+'">✓ '+s.done_by.split(' ')[0]+'</td>';
+      else h+='<td class="pg b-upd">'+s.updates+'!</td>';
+    }
+    const chips=(byDeal[d.slug]||[]).map(a=>{const p=pid2p[a.person_id]||{name:'?'};
+      return '<span class="pers" title="'+(D.roles[a.role]?.[0]||a.role)+(a.kp?' · доступ к ТКП':'')+'">'+p.name+
+        ' <small class="muted">'+a.role+'</small><span class="x" onclick="unassign('+a.id+')" title="Снять">×</span></span>';}).join('');
+    h+='<td>'+(chips||'<span class="muted">никто</span>')+'</td></tr>';
+  }
+  document.getElementById('pipe').innerHTML=h;
+  // люди
+  let ph='<tr><th>Имя</th><th>Email</th><th>Организация</th><th>Роль</th><th>Личная ссылка</th><th></th></tr>';
+  for(const p of D.people){
+    const link=location.origin+'/u/'+p.token;
+    ph+='<tr'+(p.active?'':' style="opacity:.45"')+'><td><b>'+p.name+'</b></td><td>'+p.email+'</td><td>'+(p.org||'')+'</td>'+
+      '<td>'+(D.roles[p.role]?.[0]||p.role)+'</td>'+
+      '<td><span class="linkbox" onclick="copy(\''+link+'\')" title="Скопировать">'+link+'</span></td>'+
+      '<td><button class="btn btn-sm" onclick="setActive('+p.id+','+(!p.active)+')">'+(p.active?'Отключить':'Включить')+'</button></td></tr>';
+  }
+  document.getElementById('people').innerHTML=ph;
+  // формы
+  const selP=document.getElementById('as-person');
+  selP.innerHTML=D.people.filter(p=>p.active).map(p=>'<option value="'+p.id+'">'+p.name+' ('+p.email+')</option>').join('');
+  document.getElementById('as-slug').innerHTML=D.deals.map(d=>'<option value="'+d.slug+'">'+d.title+'</option>').join('');
+  const roles=Object.entries(D.roles).map(([k,v])=>'<option value="'+k+'">'+v[0]+' — '+v[1]+'</option>').join('');
+  document.getElementById('as-role').innerHTML=roles;
+  document.getElementById('p-role').innerHTML=roles;
+  document.getElementById('as-pages').innerHTML='<span class="muted">Разделы (пусто = все, кроме ТКП):</span>'+
+    Object.entries(PAGE_NAMES).map(([k,n])=>'<label><input type="checkbox" value="'+k+'" class="as-pg"> '+n+'</label>').join('')+
+    '<label><input type="checkbox" id="as-kp"> <b>доступ к ТКП</b></label>';
+}
+async function load(){D=await api('/api/admin/overview');render();}
+async function addPerson(){
+  const b={name:v('p-name'),email:v('p-email'),org:v('p-org'),role:v('p-role')};
+  if(!b.name||!b.email)return toast('нужны имя и email');
+  await api('/api/admin/people',{method:'POST',body:JSON.stringify(b)});
+  toast('добавлен: '+b.name);['p-name','p-email','p-org'].forEach(i=>document.getElementById(i).value='');
+  load();
+}
+async function setActive(id,on){await api('/api/admin/people/'+id+'/active',{method:'POST',body:JSON.stringify({active:on})});load();}
+async function assign(){
+  const pages=[...document.querySelectorAll('.as-pg:checked')].map(c=>c.value);
+  const b={person_id:+v('as-person'),slug:v('as-slug'),role:v('as-role'),
+    pages:pages.length?pages:null,kp:document.getElementById('as-kp').checked};
+  await api('/api/admin/assign',{method:'POST',body:JSON.stringify(b)});
+  toast('назначено — приглашение в очереди у агента');load();
+}
+async function unassign(id){await api('/api/admin/assign/'+id,{method:'DELETE'});load();}
+async function checkAgent(){
+  await api('/api/admin/event',{method:'POST',body:JSON.stringify({type:'check'})});
+  toast('задача «проверить» поставлена — если агент онлайн, очередь опустеет');
+  setTimeout(load,4000);
+}
+function v(id){return document.getElementById(id).value.trim();}
+function copy(t){navigator.clipboard.writeText(t).then(()=>toast('ссылка скопирована')).catch(()=>prompt('Скопируйте:',t));}
+load();setInterval(load,60000);
+</script></body></html>

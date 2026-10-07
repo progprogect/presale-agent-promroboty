@@ -29,6 +29,17 @@ app = FastAPI(title="PromRoboty Validation Portal", docs_url=None, redoc_url=Non
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 
+# Роли: ключ -> (название, за что отвечает). Правится только здесь.
+ROLES = {
+    "delivery": ("Delivery-менеджер", "всё по проекту: гейты, финальное «пакет принят»"),
+    "tech": ("Технолог", "компоновка ячейки целиком и всё вокруг неё"),
+    "electro": ("Электрик", "электрика и электросеть"),
+    "robo": ("Подрядчик по роботам", "КД и установка робота"),
+    "soft": ("Специалист по ПО", "программное обеспечение"),
+    "viewer": ("Наблюдатель", "только просмотр"),
+}
+
+
 @app.on_event("startup")
 def startup() -> None:
     build_all()
@@ -41,6 +52,22 @@ def startup() -> None:
             conn.execute("""CREATE TABLE IF NOT EXISTS pipeline_files (
                 path text PRIMARY KEY, content bytea NOT NULL,
                 content_type text NOT NULL, updated timestamptz DEFAULT now())""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS people (
+                id serial PRIMARY KEY, name text NOT NULL, email text NOT NULL,
+                org text DEFAULT '', role text DEFAULT 'viewer',
+                token text UNIQUE NOT NULL, active boolean DEFAULT true,
+                created timestamptz DEFAULT now())""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS assignments (
+                id serial PRIMARY KEY, person_id int NOT NULL REFERENCES people(id),
+                slug text NOT NULL, role text NOT NULL, pages jsonb,
+                kp boolean DEFAULT false, created timestamptz DEFAULT now(),
+                UNIQUE (person_id, slug))""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS events (
+                id serial PRIMARY KEY, ts timestamptz DEFAULT now(),
+                type text NOT NULL, slug text DEFAULT '', payload jsonb,
+                done boolean DEFAULT false, done_ts timestamptz)""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS kv (
+                key text PRIMARY KEY, value jsonb)""")
             conn.commit()
 
 
@@ -224,6 +251,267 @@ async def pipeline_upload(request: Request, path: str) -> dict:
     return {"status": "ok", "path": path, "bytes": len(data)}
 
 
+# ---------- Люди, назначения, очередь событий (см. docs/ARCHITECTURE-ROLES.md) ----------
+
+def _need_db() -> None:
+    if not DB_URL:
+        raise HTTPException(503, "раздел требует базы данных")
+
+
+def _admin_auth(request: Request) -> None:
+    user = os.environ.get("ADMIN_USER") or os.environ.get("PIPELINE_USER", "")
+    pwd = os.environ.get("ADMIN_PASSWORD") or os.environ.get("PIPELINE_PASSWORD", "")
+    if not (user and pwd):
+        raise HTTPException(503, "админка не настроена")
+    hdr = request.headers.get("authorization", "")
+    ok = False
+    if hdr.startswith("Basic "):
+        try:
+            got_u, _, got_p = base64.b64decode(hdr[6:]).decode("utf-8").partition(":")
+            ok = secrets.compare_digest(got_u, user) and secrets.compare_digest(got_p, pwd)
+        except Exception:
+            ok = False
+    if not ok:
+        raise HTTPException(401, "нужен вход", headers={"WWW-Authenticate": 'Basic realm="admin"'})
+
+
+def _agent_auth(request: Request) -> None:
+    key = os.environ.get("AGENT_KEY", "")
+    if not key:
+        raise HTTPException(503, "агентский доступ не настроен")
+    if not secrets.compare_digest(request.headers.get("x-agent-key", ""), key):
+        raise HTTPException(403)
+
+
+def _add_event(etype: str, slug: str = "", payload: dict | None = None) -> int | None:
+    if not DB_URL:
+        return None
+    with _db() as conn:
+        row = conn.execute(
+            "INSERT INTO events (type, slug, payload) VALUES (%s, %s, %s) RETURNING id",
+            (etype, slug, json.dumps(payload or {}, ensure_ascii=False))).fetchone()
+        conn.commit()
+    return row[0]
+
+
+def _deal_titles() -> dict:
+    try:
+        return {d["slug"]: d for d in json.loads((BUILD / "deals.json").read_text())}
+    except Exception:
+        return {}
+
+
+class PersonIn(BaseModel):
+    name: str
+    email: str
+    org: str = ""
+    role: str = "viewer"
+
+
+class AssignIn(BaseModel):
+    person_id: int
+    slug: str
+    role: str
+    pages: list[str] | None = None
+    kp: bool = False
+
+
+@app.get("/admin")
+def admin_page(request: Request) -> FileResponse:
+    _admin_auth(request)
+    return FileResponse(BASE_DIR / "static" / "admin.html",
+                        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+
+@app.get("/api/admin/overview")
+def admin_overview(request: Request) -> JSONResponse:
+    _admin_auth(request)
+    _need_db()
+    deals_map = _deal_titles()
+    with _db() as conn:
+        people = [dict(zip(("id", "name", "email", "org", "role", "token", "active"), r))
+                  for r in conn.execute(
+                      "SELECT id, name, email, org, role, token, active FROM people ORDER BY id")]
+        assigns = [dict(zip(("id", "person_id", "slug", "role", "pages", "kp"), r))
+                   for r in conn.execute(
+                       "SELECT id, person_id, slug, role, pages, kp FROM assignments ORDER BY id")]
+        pending = conn.execute("SELECT count(*) FROM events WHERE NOT done").fetchone()[0]
+        last = conn.execute("SELECT max(id) FROM events").fetchone()[0] or 0
+        ping = conn.execute("SELECT value FROM kv WHERE key='agent_ping'").fetchone()
+    status = {}
+    for slug in deals_map:
+        st = {}
+        for page in PAGE_IDS:
+            ups = _get_updates(slug, page)["updates"]
+            if not ups:
+                continue
+            done = [u for u in ups if u.get("done")]
+            st[page] = {"updates": len(ups), "done_by": done[-1]["reviewer"] if done else None}
+        status[slug] = st
+    return JSONResponse({"deals": list(deals_map.values()), "people": people,
+                         "assignments": assigns, "status": status, "roles": ROLES,
+                         "pages": PAGE_IDS, "events_pending": pending, "events_last": last,
+                         "agent_ping": ping[0] if ping else None})
+
+
+@app.post("/api/admin/people")
+def admin_add_person(request: Request, p: PersonIn) -> dict:
+    _admin_auth(request)
+    _need_db()
+    if p.role not in ROLES:
+        raise HTTPException(400, "нет такой роли")
+    token = secrets.token_urlsafe(9)
+    with _db() as conn:
+        row = conn.execute(
+            "INSERT INTO people (name, email, org, role, token) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+            (p.name.strip(), p.email.strip().lower(), p.org.strip(), p.role, token)).fetchone()
+        conn.commit()
+    return {"id": row[0], "token": token}
+
+
+@app.post("/api/admin/people/{pid}/active")
+def admin_person_active(request: Request, pid: int, body: dict) -> dict:
+    _admin_auth(request)
+    _need_db()
+    with _db() as conn:
+        conn.execute("UPDATE people SET active=%s WHERE id=%s", (bool(body.get("active")), pid))
+        conn.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/admin/assign")
+def admin_assign(request: Request, a: AssignIn) -> dict:
+    _admin_auth(request)
+    _need_db()
+    if a.role not in ROLES:
+        raise HTTPException(400, "нет такой роли")
+    pages = [p for p in (a.pages or []) if p in PAGE_IDS] or None
+    with _db() as conn:
+        person = conn.execute(
+            "SELECT name, email, token FROM people WHERE id=%s AND active", (a.person_id,)).fetchone()
+        if not person:
+            raise HTTPException(404, "нет такого человека")
+        conn.execute("""INSERT INTO assignments (person_id, slug, role, pages, kp)
+            VALUES (%s,%s,%s,%s,%s)
+            ON CONFLICT (person_id, slug) DO UPDATE
+              SET role=EXCLUDED.role, pages=EXCLUDED.pages, kp=EXCLUDED.kp""",
+                     (a.person_id, a.slug, a.role, json.dumps(pages) if pages else None, a.kp))
+        conn.commit()
+    deal = _deal_titles().get(a.slug, {})
+    eid = _add_event("assign", a.slug, {
+        "person": {"name": person[0], "email": person[1], "token": person[2]},
+        "role": a.role, "role_name": ROLES[a.role][0], "pages": pages, "kp": a.kp,
+        "deal_title": deal.get("title", a.slug), "deal_code": deal.get("code", "")})
+    return {"status": "ok", "event": eid}
+
+
+@app.delete("/api/admin/assign/{aid}")
+def admin_unassign(request: Request, aid: int) -> dict:
+    _admin_auth(request)
+    _need_db()
+    with _db() as conn:
+        conn.execute("DELETE FROM assignments WHERE id=%s", (aid,))
+        conn.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/admin/event")
+def admin_event(request: Request, body: dict) -> dict:
+    _admin_auth(request)
+    _need_db()
+    etype = str(body.get("type", "note"))
+    if etype not in ("check", "note"):
+        raise HTTPException(400, "type: check | note")
+    eid = _add_event(etype, str(body.get("slug", "")), {"text": str(body.get("text", ""))[:2000]})
+    return {"status": "ok", "event": eid}
+
+
+# ---------- Очередь для локального агента ----------
+
+@app.get("/api/agent/events")
+def agent_events(request: Request, after: int = 0, wait: int = 0) -> JSONResponse:
+    _agent_auth(request)
+    _need_db()
+    import time
+    deadline = time.monotonic() + min(max(wait, 0), 25)
+    while True:
+        with _db() as conn:
+            rows = conn.execute(
+                "SELECT id, ts, type, slug, payload, done FROM events WHERE id > %s ORDER BY id LIMIT 100",
+                (after,)).fetchall()
+        if rows or time.monotonic() >= deadline:
+            evs = [{"id": r[0], "ts": r[1].isoformat(timespec="seconds"), "type": r[2],
+                    "slug": r[3], "payload": r[4], "done": r[5]} for r in rows]
+            return JSONResponse({"events": evs})
+        time.sleep(1.5)
+
+
+@app.post("/api/agent/events/{eid}/done")
+def agent_event_done(request: Request, eid: int) -> dict:
+    _agent_auth(request)
+    _need_db()
+    with _db() as conn:
+        conn.execute("UPDATE events SET done=true, done_ts=now() WHERE id=%s", (eid,))
+        conn.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/agent/ping")
+def agent_ping(request: Request, body: dict | None = None) -> dict:
+    _agent_auth(request)
+    _need_db()
+    val = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "note": str((body or {}).get("note", ""))[:200]}
+    with _db() as conn:
+        conn.execute("""INSERT INTO kv (key, value) VALUES ('agent_ping', %s)
+            ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""",
+                     (json.dumps(val, ensure_ascii=False),))
+        conn.commit()
+    return {"status": "ok"}
+
+
+# ---------- Личный кабинет ----------
+
+@app.get("/u/{token}")
+def user_page(token: str) -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "user.html",
+                        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+
+@app.get("/api/u/{token}")
+def user_data(token: str) -> JSONResponse:
+    _need_db()
+    with _db() as conn:
+        person = conn.execute(
+            "SELECT id, name, email, role FROM people WHERE token=%s AND active", (token,)).fetchone()
+        if not person:
+            raise HTTPException(404)
+        assigns = conn.execute(
+            "SELECT slug, role, pages, kp FROM assignments WHERE person_id=%s ORDER BY id",
+            (person[0],)).fetchall()
+    deals_map = _deal_titles()
+    out = []
+    for slug, role, pages, kp in assigns:
+        deal = deals_map.get(slug, {})
+        avail = [p for p in deal.get("pages", []) if p != "proposal" or kp]
+        my_pages = [p for p in (pages or avail) if p in avail]
+        st = {}
+        for page in my_pages:
+            ups = _get_updates(slug, page)["updates"]
+            mine = [u for u in ups if u.get("done")]
+            st[page] = {"updates": len(ups), "done": bool(mine)}
+        out.append({"slug": slug, "title": deal.get("title", slug), "code": deal.get("code", ""),
+                    "status": deal.get("status", ""), "role": role,
+                    "role_name": ROLES.get(role, (role,))[0], "pages": my_pages, "kp": kp,
+                    "page_status": st})
+    return JSONResponse({"name": person[1], "role": person[3], "projects": out,
+                         "page_names": {p: n for p, n in
+                                        [("package", "Обзор"), ("questions", "Вводные"),
+                                         ("process", "Процесс"), ("solution", "Решение"),
+                                         ("wbs", "Декомпозиция"), ("bom", "Компоненты"),
+                                         ("proposal", "ТКП")]}})
+
+
 class Review(BaseModel):
     reviewer: str
     done: bool = False
@@ -272,6 +560,8 @@ def post_review(slug: str, page: str, review: Review) -> dict:
     entry = review.model_dump()
     entry["ts"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     n = _add_update(slug, page, entry)
+    if review.done:  # локальный агент узнаёт о завершённой проверке сразу (очередь событий)
+        _add_event("review_done", slug, {"page": page, "reviewer": review.reviewer, "layers": n})
     return {"status": "ok", "updates": n}
 
 
