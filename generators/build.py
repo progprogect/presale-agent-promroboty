@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 from . import (bom_page, overview_page, process_page, proposal_page, questions_page,
-               schematic_page, solution_page, wbs_page)
+               solution_page, wbs_page)
 from .common import PAGES, esc
 
 BASE = Path(__file__).resolve().parent.parent
@@ -22,7 +22,6 @@ SPEC_PAGES = {
     "questions": questions_page,
     "process": process_page,
     "solution": solution_page,
-    "schematic": schematic_page,
     "wbs": wbs_page,
     "bom": bom_page,
     "proposal": proposal_page,
@@ -58,8 +57,10 @@ def _index(deals: list[dict]) -> str:
 </div></body></html>"""
 
 
-def _load_schematic(deal_dir: Path) -> dict:
-    """Спека схемы + инлайн SVG-видов из data/deals/<slug>/schematic/*.svg."""
+def _load_schematic(deal_dir: Path) -> dict | None:
+    """Спека схемы + инлайн SVG-видов из data/deals/<slug>/schematic/*.svg (для вкладки «Компоненты»)."""
+    if not (deal_dir / "schematic.yaml").exists():
+        return None
     spec = yaml.safe_load((deal_dir / "schematic.yaml").read_text())
     for v in spec.get("views", []):
         f = deal_dir / v["file"]
@@ -101,10 +102,12 @@ def build_all() -> list[str]:
                 continue
             if page == "wbs":
                 spec = _load_wbs(deal_dir)
-            elif page == "schematic":
-                spec = _load_schematic(deal_dir)
             else:
                 spec = yaml.safe_load((deal_dir / f"{page}.yaml").read_text())
+            if page == "bom":
+                sch = _load_schematic(deal_dir)
+                if sch:
+                    spec["schematic"] = sch
             (out / f"{page}.html").write_text(module.render(deal, spec))
             built.append(f"{deal['slug']}/{page}.html")
         pkg_spec = {}

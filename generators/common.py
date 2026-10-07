@@ -10,7 +10,6 @@ PAGES = [
     ("questions", "Вводные"),
     ("process", "Процесс"),
     ("solution", "Решение"),
-    ("schematic", "Схема"),
     ("wbs", "Декомпозиция"),
     ("bom", "Компоненты"),
     ("proposal", "ТКП"),
@@ -39,7 +38,11 @@ td.pkg .res{display:block;font-weight:400;color:var(--tblr-secondary);font-size:
 .step .val{min-width:26px;text-align:center;font-weight:500}
 .step .btn-icon{width:20px;height:20px;min-height:0;font-size:12px;padding:0}
 tr.grp td{background:var(--tblr-bg-surface-tertiary);color:var(--tblr-secondary);
-  font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px}
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;
+  cursor:pointer;user-select:none}
+tr.grp .chev{display:inline-block;width:13px;transition:transform .15s}
+tr.grp.closed .chev{transform:rotate(-90deg)}
+tr.grp .st-sum{float:right;font-weight:500;text-transform:none;letter-spacing:0}
 td.locked{background:var(--tblr-bg-surface-secondary);color:var(--tblr-secondary);font-weight:500}
 td.changed{background:var(--tblr-blue-lt)}
 td.changed .was{display:block;font-size:10px;color:var(--tblr-blue)}

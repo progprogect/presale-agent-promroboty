@@ -132,9 +132,10 @@ def convert_wbs(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
     return out, {"packages": n_base, "hours": h_base, "opt_packages": n_opt, "opt_hours": h_opt}
 
 
-def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
+def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]:
     items = _load(_p(base, rules["bom"]))["items"]
     weeks = {}
+    code2row = {}  # внутренний код строки (A1…) -> номер строки на портале (1-based)
     if rules.get("bom_source"):
         src = _load(_p(base, rules["bom_source"]))
         var = [v for v in src["variants"] if v["id"] == rules.get("bom_variant", "V2")][0]
@@ -145,6 +146,8 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
             if j < len(items) and norm(it["item"]) == norm(items[j]["pos"]):
                 if it.get("lead_weeks"):
                     weeks[j] = list(it["lead_weeks"])
+                if it.get("id"):
+                    code2row[str(it["id"])] = j + 1
                 j += 1
         if j != len(items):
             sys.exit(f"не удалось сопоставить сроки: {j} из {len(items)}")
@@ -203,10 +206,10 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
             if abs(mine - theirs) > 0.005 * theirs:
                 sys.exit(f"сумма вилок ({name}) не сходится: {mine:.0f} против {theirs:.0f}")
     return {"items": out}, {"items": len(out), "total": tot, "lo": lo_t, "hi": hi_t,
-                            "weeks": len(weeks)}
+                            "weeks": len(weeks)}, code2row
 
 
-def convert_pass(rules: dict, base: Path, cl: Cleaner) -> list[tuple]:
+def convert_pass(rules: dict, base: Path, cl: Cleaner, code2row: dict | None = None) -> list[tuple]:
     """Спеки, которые идут на портал как есть: вводные, процесс, решение, ТКП, обзор."""
     done = []
     for page, rel in (rules.get("pass_specs") or {}).items():
@@ -215,9 +218,16 @@ def convert_pass(rules: dict, base: Path, cl: Cleaner) -> list[tuple]:
             spec["questions"] = [q for q in spec["questions"] if not q.get("internal")]
         if page == "schematic":
             # коды строк BOM (A1, F8…) — внутренние, на страницах портала запрещены (forbid);
-            # связь с составом держится на одинаковых наименованиях позиций
+            # наружу идут только номера строк состава (rows) для перекрёстной подсветки
+            missed = []
             for p in spec.get("positions", []):
-                p.pop("bom", None)
+                codes = p.pop("bom", None) or []
+                rows = sorted({code2row[c] for c in codes if c in (code2row or {})})
+                if rows:
+                    p["rows"] = rows
+                missed += [c for c in codes if c not in (code2row or {})]
+            if missed:
+                print(f"  ! схема: кодов без строки BOM на портале: {sorted(set(missed))}")
         n = next((len(spec[k]) for k in ("questions", "steps", "nodes", "sections") if k in spec), 0)
         done.append((page, cl.walk(spec), n))
     return done
@@ -250,7 +260,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     wbs, ws = convert_wbs(rules, base, cl)
-    bom, bs = convert_bom(rules, base, cl)
+    bom, bs, code2row = convert_bom(rules, base, cl)
 
     head = ("# Сгенерировано generators/from_lead.py из сметы сделки. Правка = правка источника + пересборка.\n"
             "# Деньги (ставки, себестоимость, маржа) сюда не попадают: только часы и цены закупки.\n")
@@ -264,7 +274,7 @@ def main() -> None:
     (out_dir / "wbs.yaml").write_text(head + wtxt, encoding="utf-8")
     (out_dir / "bom.yaml").write_text(head + btxt, encoding="utf-8")
 
-    extra = convert_pass(rules, base, cl)
+    extra = convert_pass(rules, base, cl, code2row)
     for page, spec, n in extra:
         txt = dump(spec)
         bad_x = [w for w in (rules.get("forbid") or []) if re.search(w, txt, re.I)]

@@ -34,6 +34,7 @@ def allowed_numbers(slug: str) -> set[int]:
         return out
     items = yaml.safe_load(bom.read_text())["items"]
     lo = hi = tot = 0
+    grp: dict[str, list[float]] = {}
     for it in items:
         p = it.get("price") or 0
         r = it.get("range") or [p, p]
@@ -41,7 +42,11 @@ def allowed_numbers(slug: str) -> set[int]:
         lo += r[0]
         hi += r[1]
         out.update({round(p), round(r[0]), round(r[1])})
+        g = grp.setdefault(it.get("group") or "", [0, 0, 0])
+        g[0] += p; g[1] += r[0]; g[2] += r[1]
     out.update({round(tot), round(lo), round(hi)})
+    for g in grp.values():  # итоги категорий на странице состава
+        out.update({round(g[0]), round(g[1]), round(g[2])})
     return out
 
 
