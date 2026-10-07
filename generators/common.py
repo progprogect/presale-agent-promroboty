@@ -446,6 +446,31 @@ document.querySelectorAll('.mic-btn').forEach(b=>{
 """
 
 
+# Гейты и согласования по ролям (фаза 2): статус с /api/d/<slug>/approvals,
+# кнопки работают по персональной ссылке (?u=<токен>), роль берётся с /api/u/<токен>.
+APPROVE_JS = r"""
+const U_TOKEN=new URLSearchParams(location.search).get('u');
+let MY_ROLE=null,MY_NAME=null;
+async function myRole(){
+  if(!U_TOKEN)return null;
+  try{const r=await fetch('/api/u/'+U_TOKEN);if(!r.ok)return null;const d=await r.json();
+    MY_NAME=d.name;const p=(d.projects||[]).find(x=>x.slug===SLUG);MY_ROLE=p?p.role:null;}catch(e){}
+  return MY_ROLE;
+}
+async function getApprovals(){
+  try{const r=await fetch('/api/d/'+SLUG+'/approvals');return r.ok?await r.json():null;}catch(e){return null;}
+}
+async function sendApprove(kind,note){
+  const r=await fetch('/api/d/'+SLUG+'/approve',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token:U_TOKEN,kind,note:note||''})});
+  if(!r.ok){statusEl.textContent='не получилось: '+(await r.text()).slice(0,140);return false;}
+  return true;
+}
+function fmtTs(ts){return (ts||'').slice(0,16).replace('T',' ');}
+"""
+
+
 def savebar(done_label: str = "Проверка завершена", note: str = "") -> str:
     hint = note or "правки лягут слоем поверх нашей версии — ничего не затирается"
     return f"""

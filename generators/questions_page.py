@@ -6,7 +6,7 @@
 Поля вопроса: id, topic, q, status (answered|assumed|ask), risk (high|mid|low), impact.
 Необязательные: need, answer, source (для answered), basis (для assumed), ask_text (для ask).
 """
-from .common import ICON_COMMENT, ICON_MIC, REVIEW_JS, esc, savebar, shell
+from .common import APPROVE_JS, ICON_COMMENT, ICON_MIC, REVIEW_JS, esc, savebar, shell
 
 STATUS = {
     "answered": ("ответ есть", "bg-green-lt"),
@@ -95,7 +95,31 @@ def render(deal: dict, spec: dict) -> str:
   </div>
   {warn}
   <div class="card"><div class="card-body py-2">{"".join(rows)}</div></div>
+  <div class="gate">
+    <h3>Гейт вводных</h3>
+    <p id="qgate-st" class="text-secondary" style="font-size:12.5px">…</p>
+    <div id="qgate-btn" hidden>
+      <button class="btn btn-primary btn-sm"
+        onclick="closeQGate()">Вводные согласованы — двигаемся к пакету</button>
+      <span class="text-secondary" style="font-size:12px">кнопка delivery-менеджера; после неё
+        собирается пакет (схема, работы, состав)</span>
+    </div>
+  </div>
   {savebar()}"""
 
-    script = f'const API_URL="/api/d/{deal["slug"]}/review/questions";\n' + REVIEW_JS
+    script = (f'const API_URL="/api/d/{deal["slug"]}/review/questions";'
+              f'const SLUG="{deal["slug"]}";\n' + REVIEW_JS + APPROVE_JS + r"""
+async function drawQGate(){
+  const a=await getApprovals();const st=document.getElementById('qgate-st');
+  if(a&&a.questions_gate){
+    st.innerHTML='<span class="badge bg-green-lt">согласовано · '+a.questions_gate.by+' · '+fmtTs(a.questions_gate.ts)+'</span>';
+  }else st.textContent='ещё не закрыт: delivery-менеджер закрывает гейт, когда блокирующих вопросов не осталось.';
+  await myRole();
+  document.getElementById('qgate-btn').hidden=(MY_ROLE!=='delivery');
+}
+async function closeQGate(){
+  if(await sendApprove('questions'))drawQGate();
+}
+drawQGate();
+""")
     return shell(deal, "Вводные", "questions", body, script)

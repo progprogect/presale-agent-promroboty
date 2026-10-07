@@ -5,7 +5,7 @@
 """
 import json
 
-from .common import ICON_MIC, PAGES, REVIEW_JS, esc, savebar, shell
+from .common import APPROVE_JS, ICON_MIC, PAGES, REVIEW_JS, esc, savebar, shell
 
 # Что валидатор увидит в строке раздела: зачем этот раздел нужен.
 WHY = {
@@ -36,6 +36,14 @@ def render(deal: dict, spec: dict) -> str:
   в любом порядке, но начинать стоит с «Вводных» — если предположение неверно, дальше неверно всё.
   Правки в каждом разделе ложатся отдельным слоем, наша версия не затирается.</p>
   <div class="card"><div class="card-body py-2">{rows}</div></div>
+  <div class="card mt-2"><div class="card-body py-3">
+    <h3 style="font-size:13px;margin:0 0 6px">Согласования по ролям</h3>
+    <p class="text-secondary" style="font-size:12px;margin:0 0 8px">Каждый согласует свою часть
+      пакета; delivery-менеджер принимает пакет целиком — после этого собирается ТКП.
+      Кнопки работают по персональной ссылке из вашего кабинета.</p>
+    <div id="appr-list" class="text-secondary" style="font-size:13px">…</div>
+    <div id="appr-actions" class="mt-2" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div></div>
   <div class="gate">
     <h3>Решение delivery-менеджера</h3>
     <p>{esc(gate_note)}</p>
@@ -58,8 +66,41 @@ def render(deal: dict, spec: dict) -> str:
 
     script = (f'const API_URL="/api/d/{deal["slug"]}/review/package";'
               f'const STATUS_URL="/api/d/{deal["slug"]}/status";'
+              f'const SLUG="{deal["slug"]}";'
               f'const PAGE_LABELS={json.dumps(dict(PAGES), ensure_ascii=False)};\n'
-              + REVIEW_JS + r"""
+              + REVIEW_JS + APPROVE_JS + r"""
+// матрица согласований по ролям
+async function drawApprovals(){
+  const a=await getApprovals();if(!a)return;
+  const list=document.getElementById('appr-list');
+  const done=Object.fromEntries((a.package||[]).map(x=>[x.by,x]));
+  let h='';
+  if(a.questions_gate)
+    h+='<div>Гейт вводных: <span class="badge bg-green-lt">закрыт · '+a.questions_gate.by+' · '+fmtTs(a.questions_gate.ts)+'</span></div>';
+  else h+='<div>Гейт вводных: <span class="badge bg-yellow-lt">не закрыт</span></div>';
+  for(const p of (a.assigned||[])){
+    const d=done[p.name];
+    h+='<div style="margin-top:3px">'+p.role_name+' — <b>'+p.name+'</b>: '+
+      (d?'<span class="badge bg-green-lt">согласовано · '+fmtTs(d.ts)+'</span>'
+        :'<span class="badge bg-yellow-lt">ждём</span>')+'</div>';
+  }
+  if(a.final)h+='<div style="margin-top:6px"><span class="badge bg-green-lt">ПАКЕТ ПРИНЯТ · '+
+    a.final.by+' · '+fmtTs(a.final.ts)+'</span> — можно собирать ТКП</div>';
+  list.innerHTML=h||'на проект пока никто не назначен';
+  await myRole();
+  const act=document.getElementById('appr-actions');act.innerHTML='';
+  if(MY_ROLE&&MY_ROLE!=='viewer'){
+    const mine=done[MY_NAME];
+    const b=document.createElement('button');
+    b.className='btn btn-sm '+(MY_ROLE==='delivery'?'btn-primary':'');
+    b.textContent=MY_ROLE==='delivery'
+      ?(a.final?'Подтвердить пакет заново':'Принять пакет — собирать ТКП')
+      :(mine?'Согласовано заново (обновить)':'Согласовать свою часть');
+    b.onclick=async()=>{if(await sendApprove('package'))drawApprovals();};
+    act.appendChild(b);
+  }
+}
+drawApprovals();
 // состояние разделов пакета: сколько слоёв правок и кто завершил проверку
 (async()=>{
   try{

@@ -68,6 +68,10 @@ def startup() -> None:
                 done boolean DEFAULT false, done_ts timestamptz)""")
             conn.execute("""CREATE TABLE IF NOT EXISTS kv (
                 key text PRIMARY KEY, value jsonb)""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS approvals (
+                id serial PRIMARY KEY, slug text NOT NULL, person_id int NOT NULL,
+                role text NOT NULL, kind text NOT NULL, note text DEFAULT '',
+                ts timestamptz DEFAULT now(), UNIQUE (slug, person_id, kind))""")
             conn.execute("""INSERT INTO kv (key, value) VALUES ('tpl_invite', %s)
                 ON CONFLICT (key) DO NOTHING""", (json.dumps(TPL_INVITE_DEFAULT, ensure_ascii=False),))
             conn.commit()
@@ -129,9 +133,12 @@ def deal_card(slug: str) -> FileResponse:
 
 
 @app.get("/d/{slug}/{page}")
-def deal_page(slug: str, page: str) -> FileResponse:
+def deal_page(slug: str, page: str, u: str | None = None) -> FileResponse:
     if page not in PAGE_IDS:
         raise HTTPException(404)
+    if page == "proposal" and DB_URL and not _kp_allowed(slug, u):
+        # ТКП видят только назначенные с флагом доступа (ссылка из личного кабинета)
+        raise HTTPException(403, "доступ к ТКП выдаётся отдельно — зайдите по своей персональной ссылке")
     path = BUILD / slug / f"{page}.html"
     if not path.exists():
         raise HTTPException(404)
@@ -154,7 +161,9 @@ def deal_img(slug: str, name: str) -> FileResponse:
 
 
 @app.get("/d/{slug}/proposal/{name}")
-def deal_proposal_file(slug: str, name: str) -> FileResponse:
+def deal_proposal_file(slug: str, name: str, u: str | None = None) -> FileResponse:
+    if DB_URL and not _kp_allowed(slug, u):
+        raise HTTPException(403, "доступ к ТКП выдаётся отдельно")
     return _deal_file(slug, "proposal", name)
 
 
@@ -578,6 +587,86 @@ def user_data(token: str) -> JSONResponse:
                                          ("process", "Процесс"), ("solution", "Решение"),
                                          ("wbs", "Декомпозиция"), ("bom", "Компоненты"),
                                          ("proposal", "ТКП")]}})
+
+
+# ---------- Согласования: гейт вводных и пакет по ролям (фаза 2) ----------
+
+class ApproveIn(BaseModel):
+    token: str
+    kind: str  # questions | package
+    note: str = ""
+
+
+def _person_on_deal(token: str, slug: str):
+    """(person_id, name, role_on_deal) по токену и слагу; 403, если не назначен."""
+    with _db() as conn:
+        row = conn.execute("""SELECT p.id, p.name, a.role FROM people p
+            JOIN assignments a ON a.person_id = p.id
+            WHERE p.token=%s AND p.active AND a.slug=%s""", (token, slug)).fetchone()
+    if not row:
+        raise HTTPException(403, "ссылка не даёт прав на этот проект")
+    return row
+
+
+@app.post("/api/d/{slug}/approve")
+def approve(slug: str, a: ApproveIn) -> dict:
+    _need_db()
+    if a.kind not in ("questions", "package"):
+        raise HTTPException(400, "kind: questions | package")
+    pid, name, role = _person_on_deal(a.token, slug)
+    if a.kind == "questions" and role != "delivery":
+        raise HTTPException(403, "гейт вводных закрывает delivery-менеджер")
+    if role == "viewer":
+        raise HTTPException(403, "роль «наблюдатель» не согласует")
+    with _db() as conn:
+        conn.execute("""INSERT INTO approvals (slug, person_id, role, kind, note)
+            VALUES (%s,%s,%s,%s,%s)
+            ON CONFLICT (slug, person_id, kind) DO UPDATE
+              SET note=EXCLUDED.note, role=EXCLUDED.role, ts=now()""",
+                     (slug, pid, role, a.kind, a.note[:1000]))
+        conn.commit()
+    if a.kind == "questions":
+        _add_event("questions_gate", slug, {"by": name, "role": role})
+    elif role == "delivery":
+        _add_event("package_accepted", slug, {"by": name, "note": a.note[:500]})
+    return {"status": "ok"}
+
+
+@app.get("/api/d/{slug}/approvals")
+def approvals(slug: str) -> JSONResponse:
+    _need_db()
+    if "/" in slug or ".." in slug:
+        raise HTTPException(404)
+    with _db() as conn:
+        apps = conn.execute("""SELECT a.kind, a.role, a.note, a.ts, p.name
+            FROM approvals a JOIN people p ON p.id=a.person_id
+            WHERE a.slug=%s ORDER BY a.ts""", (slug,)).fetchall()
+        assigned = conn.execute("""SELECT p.name, a.role FROM assignments a
+            JOIN people p ON p.id=a.person_id
+            WHERE a.slug=%s AND p.active AND a.role != 'viewer' ORDER BY a.id""",
+                                (slug,)).fetchall()
+    q_gate = next(({"by": r[4], "ts": r[3].isoformat(timespec="seconds")}
+                   for r in apps if r[0] == "questions"), None)
+    pkg = [{"role": r[1], "role_name": ROLES.get(r[1], (r[1],))[0], "by": r[4],
+            "note": r[2], "ts": r[3].isoformat(timespec="seconds")}
+           for r in apps if r[0] == "package"]
+    final = next((p for p in pkg if p["role"] == "delivery"), None)
+    return JSONResponse({
+        "questions_gate": q_gate,
+        "package": pkg,
+        "final": final,
+        "assigned": [{"name": n, "role": r, "role_name": ROLES.get(r, (r,))[0]}
+                     for n, r in assigned]})
+
+
+def _kp_allowed(slug: str, token: str | None) -> bool:
+    if not (DB_URL and token):
+        return False
+    with _db() as conn:
+        row = conn.execute("""SELECT a.kp FROM people p
+            JOIN assignments a ON a.person_id=p.id
+            WHERE p.token=%s AND p.active AND a.slug=%s""", (token, slug)).fetchone()
+    return bool(row and row[0])
 
 
 class Review(BaseModel):
