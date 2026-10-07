@@ -68,6 +68,8 @@ def startup() -> None:
                 done boolean DEFAULT false, done_ts timestamptz)""")
             conn.execute("""CREATE TABLE IF NOT EXISTS kv (
                 key text PRIMARY KEY, value jsonb)""")
+            conn.execute("""INSERT INTO kv (key, value) VALUES ('tpl_invite', %s)
+                ON CONFLICT (key) DO NOTHING""", (json.dumps(TPL_INVITE_DEFAULT, ensure_ascii=False),))
             conn.commit()
 
 
@@ -253,6 +255,42 @@ async def pipeline_upload(request: Request, path: str) -> dict:
 
 # ---------- Люди, назначения, очередь событий (см. docs/ARCHITECTURE-ROLES.md) ----------
 
+# Шаблон приглашения (правится в админке, хранится в kv). Плейсхолдеры:
+# {name} {deal_title} {deal_code} {role_name} {link} {kp_note}
+TPL_INVITE_DEFAULT = {
+    "subject": "Проект «{deal_title}» — нужна ваша проверка",
+    "body": """Добрый день!
+
+Подключаем вас к проверке проекта «{deal_title}» в роли «{role_name}».
+Ваша персональная страница со списком разделов: {link}
+
+Открывайте разделы, правьте значения и оставляйте комментарии прямо на странице
+(есть голосовой ввод); в конце раздела нажмите «Проверка завершена». Правки ложатся
+отдельным слоем — ничего не затирается.{kp_note}
+
+Вопросы можно писать прямо в комментариях на странице.""",
+}
+TEMPLATE_KEYS = ("tpl_invite",)
+
+
+class _SafeMap(dict):
+    def __missing__(self, key):  # незнакомый плейсхолдер не валит рендер
+        return "{" + key + "}"
+
+
+def _kv_get(key: str, default=None):
+    with _db() as conn:
+        row = conn.execute("SELECT value FROM kv WHERE key=%s", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def _kv_set(key: str, value) -> None:
+    with _db() as conn:
+        conn.execute("""INSERT INTO kv (key, value) VALUES (%s, %s)
+            ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value""",
+                     (key, json.dumps(value, ensure_ascii=False)))
+        conn.commit()
+
 def _need_db() -> None:
     if not DB_URL:
         raise HTTPException(503, "раздел требует базы данных")
@@ -398,11 +436,41 @@ def admin_assign(request: Request, a: AssignIn) -> dict:
                      (a.person_id, a.slug, a.role, json.dumps(pages) if pages else None, a.kp))
         conn.commit()
     deal = _deal_titles().get(a.slug, {})
+    # письмо рендерится здесь, по шаблону из админки — локальный агент только отправляет
+    tpl = _kv_get("tpl_invite", TPL_INVITE_DEFAULT)
+    base = os.environ.get("PUBLIC_URL", "https://project.promroboty.by").rstrip("/")
+    ctx = _SafeMap(name=person[0], deal_title=deal.get("title", a.slug),
+                   deal_code=deal.get("code", ""), role_name=ROLES[a.role][0],
+                   link=f"{base}/u/{person[2]}",
+                   kp_note=("\nВам также открыт доступ к итоговому коммерческому предложению "
+                            "(вкладка «ТКП»)." if a.kp else ""))
     eid = _add_event("assign", a.slug, {
         "person": {"name": person[0], "email": person[1], "token": person[2]},
         "role": a.role, "role_name": ROLES[a.role][0], "pages": pages, "kp": a.kp,
-        "deal_title": deal.get("title", a.slug), "deal_code": deal.get("code", "")})
+        "deal_title": deal.get("title", a.slug), "deal_code": deal.get("code", ""),
+        "mail": {"to": person[1], "subject": tpl["subject"].format_map(ctx),
+                 "body": tpl["body"].format_map(ctx)}})
     return {"status": "ok", "event": eid}
+
+
+@app.get("/api/admin/templates")
+def admin_templates(request: Request) -> JSONResponse:
+    _admin_auth(request)
+    _need_db()
+    return JSONResponse({k: _kv_get(k, TPL_INVITE_DEFAULT) for k in TEMPLATE_KEYS})
+
+
+@app.post("/api/admin/templates/{key}")
+def admin_save_template(request: Request, key: str, body: dict) -> dict:
+    _admin_auth(request)
+    _need_db()
+    if key not in TEMPLATE_KEYS:
+        raise HTTPException(404)
+    subject, text = str(body.get("subject", "")).strip(), str(body.get("body", "")).strip()
+    if not subject or not text:
+        raise HTTPException(400, "нужны subject и body")
+    _kv_set(key, {"subject": subject, "body": text})
+    return {"status": "ok"}
 
 
 @app.delete("/api/admin/assign/{aid}")

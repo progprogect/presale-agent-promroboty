@@ -65,6 +65,18 @@ td,th{padding:6px 8px;vertical-align:middle}
   </div></div>
 
   <div class="card"><div class="card-body">
+    <h3>Шаблон приглашения</h3>
+    <div class="muted" style="margin-bottom:6px">Плейсхолдеры: {name} {deal_title} {deal_code}
+      {role_name} {link} {kp_note}. Новые назначения используют сохранённый текст; письмо шлёт
+      локальный агент автоматически.</div>
+    <div style="display:flex;flex-direction:column;gap:6px;max-width:760px">
+      <input id="tpl-subject" class="form-control form-control-sm" placeholder="Тема">
+      <textarea id="tpl-body" class="form-control" rows="9" style="font-size:12.5px"></textarea>
+      <div><button class="btn btn-primary btn-sm" onclick="saveTpl()">Сохранить шаблон</button></div>
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-body">
     <h3>Люди</h3>
     <table class="table table-sm" id="people"></table>
     <div class="formrow">
@@ -140,6 +152,16 @@ function render(){
     '<label><input type="checkbox" id="as-kp"> <b>доступ к ТКП</b></label>';
 }
 async function load(){D=await api('/api/admin/overview');render();}
+async function loadTpl(){
+  const t=(await api('/api/admin/templates')).tpl_invite;
+  document.getElementById('tpl-subject').value=t.subject;
+  document.getElementById('tpl-body').value=t.body;
+}
+async function saveTpl(){
+  await api('/api/admin/templates/tpl_invite',{method:'POST',
+    body:JSON.stringify({subject:v('tpl-subject'),body:document.getElementById('tpl-body').value})});
+  toast('шаблон сохранён — действует на новые назначения');
+}
 async function addPerson(){
   const b={name:v('p-name'),email:v('p-email'),org:v('p-org'),role:v('p-role')};
   if(!b.name||!b.email)return toast('нужны имя и email');
@@ -163,5 +185,5 @@ async function checkAgent(){
 }
 function v(id){return document.getElementById(id).value.trim();}
 function copy(t){navigator.clipboard.writeText(t).then(()=>toast('ссылка скопирована')).catch(()=>prompt('Скопируйте:',t));}
-load();setInterval(load,60000);
+load();loadTpl();setInterval(load,60000);
 </script></body></html>
