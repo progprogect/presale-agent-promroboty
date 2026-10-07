@@ -3,15 +3,18 @@
 v0.2: страницы WBS и компонентов строятся CSPL-генераторами из data/deals/*,
 правки валидаторов сохраняются слоем в runtime/ (наша версия не затирается).
 """
+import base64
 import json
+import mimetypes
 import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
 import uvicorn
-from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -35,6 +38,9 @@ def startup() -> None:
             conn.execute("""CREATE TABLE IF NOT EXISTS reviews (
                 id serial PRIMARY KEY, slug text NOT NULL, page text NOT NULL,
                 entry jsonb NOT NULL, ts timestamptz DEFAULT now())""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS pipeline_files (
+                path text PRIMARY KEY, content bytea NOT NULL,
+                content_type text NOT NULL, updated timestamptz DEFAULT now())""")
             conn.commit()
 
 
@@ -78,7 +84,7 @@ def _add_update(slug: str, page: str, entry: dict) -> int:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.5"}
+    return {"status": "ok", "version": "0.6"}
 
 
 @app.get("/")
@@ -121,6 +127,101 @@ def deal_img(slug: str, name: str) -> FileResponse:
 @app.get("/d/{slug}/proposal/{name}")
 def deal_proposal_file(slug: str, name: str) -> FileResponse:
     return _deal_file(slug, "proposal", name)
+
+
+# ---------- Пайплайн: полный внутренний дашборд под паролем ----------
+# Файлы (index.html + ТЗ сделок) выгружаются с машины Микиты скриптом
+# tools/push_pipeline.py НАПРЯМУЮ в Postgres — в публичный репозиторий не попадают.
+# Доступ на чтение — HTTP Basic (PIPELINE_USER / PIPELINE_PASSWORD в env Railway),
+# выгрузка — токен PIPELINE_UPLOAD_TOKEN.
+
+def _pipeline_auth(request: Request) -> None:
+    user = os.environ.get("PIPELINE_USER", "")
+    pwd = os.environ.get("PIPELINE_PASSWORD", "")
+    if not (user and pwd):
+        raise HTTPException(503, "раздел не настроен")
+    hdr = request.headers.get("authorization", "")
+    ok = False
+    if hdr.startswith("Basic "):
+        try:
+            got_u, _, got_p = base64.b64decode(hdr[6:]).decode("utf-8").partition(":")
+            ok = secrets.compare_digest(got_u, user) and secrets.compare_digest(got_p, pwd)
+        except Exception:
+            ok = False
+    if not ok:
+        raise HTTPException(401, "нужен вход",
+                            headers={"WWW-Authenticate": 'Basic realm="pipeline"'})
+
+
+def _pipeline_path_ok(path: str) -> bool:
+    return bool(path.strip()) and ".." not in path and not path.startswith("/") and "\\" not in path
+
+
+def _pipeline_ct(path: str) -> str:
+    if path.endswith(".md"):
+        return "text/plain; charset=utf-8"
+    if path.endswith(".html"):
+        return "text/html; charset=utf-8"
+    return mimetypes.guess_type(path)[0] or "application/octet-stream"
+
+
+def _pipeline_get(path: str):
+    if DB_URL:
+        with _db() as conn:
+            row = conn.execute(
+                "SELECT content, content_type FROM pipeline_files WHERE path=%s",
+                (path,)).fetchone()
+        return (bytes(row[0]), row[1]) if row else None
+    f = RUNTIME / "pipeline" / path
+    if not f.is_file():
+        return None
+    return f.read_bytes(), _pipeline_ct(path)
+
+
+def _pipeline_put(path: str, data: bytes, ct: str) -> None:
+    if DB_URL:
+        with _db() as conn:
+            conn.execute("""INSERT INTO pipeline_files (path, content, content_type, updated)
+                VALUES (%s, %s, %s, now())
+                ON CONFLICT (path) DO UPDATE SET content = EXCLUDED.content,
+                  content_type = EXCLUDED.content_type, updated = now()""",
+                         (path, data, ct))
+            conn.commit()
+        return
+    f = RUNTIME / "pipeline" / path
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_bytes(data)
+
+
+@app.get("/pipeline")
+@app.get("/pipeline/{path:path}")
+def pipeline_view(request: Request, path: str = "") -> Response:
+    _pipeline_auth(request)
+    path = path or "index.html"
+    if not _pipeline_path_ok(path):
+        raise HTTPException(404)
+    row = _pipeline_get(path)
+    if row is None:
+        raise HTTPException(404, "файл ещё не выгружен (tools/push_pipeline.py)")
+    content, ct = row
+    return Response(content=content, media_type=ct,
+                    headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+
+@app.post("/api/pipeline/upload")
+async def pipeline_upload(request: Request, path: str) -> dict:
+    token = os.environ.get("PIPELINE_UPLOAD_TOKEN", "")
+    if not token:
+        raise HTTPException(503, "выгрузка не настроена")
+    if not secrets.compare_digest(request.headers.get("x-pipeline-token", ""), token):
+        raise HTTPException(403)
+    if not _pipeline_path_ok(path):
+        raise HTTPException(400, "плохой путь")
+    data = await request.body()
+    if len(data) > 30 * 1024 * 1024:
+        raise HTTPException(413, "файл больше 30 МБ")
+    _pipeline_put(path, data, _pipeline_ct(path))
+    return {"status": "ok", "path": path, "bytes": len(data)}
 
 
 class Review(BaseModel):
