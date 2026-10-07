@@ -10,6 +10,7 @@ PAGES = [
     ("questions", "Вводные"),
     ("process", "Процесс"),
     ("solution", "Решение"),
+    ("schematic", "Схема"),
     ("wbs", "Декомпозиция"),
     ("bom", "Компоненты"),
     ("proposal", "ТКП"),
@@ -126,6 +127,22 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .sheet .shots figure{margin:0;max-width:300px}
 .sheet .shots img{width:100%;border-radius:5px;border:1px solid var(--tblr-border-color)}
 .sheet .shots figcaption{font-size:10.5px;color:var(--tblr-secondary);margin-top:2px}
+
+/* Схема компоновки: инлайн-SVG с подсветкой позиций */
+.schv{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--tblr-secondary);margin:0 0 8px}
+.schfig{overflow-x:auto}
+.schfig svg{display:block;width:100%;height:auto;min-width:700px}
+svg g.pobj,svg g.pnum{cursor:pointer}
+svg g.pobj.hl{filter:drop-shadow(0 0 3px #1f66c4) drop-shadow(0 0 6px rgba(31,102,196,.55))}
+svg g.pnum.hl circle{fill:#1f66c4}
+svg g.pnum.hl text{fill:#fff}
+table.expl{font-size:12.5px}
+table.expl td{vertical-align:top}
+table.expl td.bomref{font-variant-numeric:tabular-nums;color:var(--tblr-secondary);white-space:nowrap}
+tr[data-pos]{cursor:default}
+tr[data-pos].hl>td{background:var(--tblr-blue-lt)}
+#postip{position:fixed;pointer-events:none;background:var(--tblr-body-color);color:var(--tblr-bg-surface);
+  font-size:12px;padding:4px 9px;border-radius:6px;opacity:0;transition:opacity .12s;z-index:9;max-width:320px}
 
 /* Обзор карточки */
 .secrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--tblr-border-color);

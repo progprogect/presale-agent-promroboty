@@ -213,6 +213,11 @@ def convert_pass(rules: dict, base: Path, cl: Cleaner) -> list[tuple]:
         spec = _load(_p(base, rel))
         if page == "questions":
             spec["questions"] = [q for q in spec["questions"] if not q.get("internal")]
+        if page == "schematic":
+            # коды строк BOM (A1, F8…) — внутренние, на страницах портала запрещены (forbid);
+            # связь с составом держится на одинаковых наименованиях позиций
+            for p in spec.get("positions", []):
+                p.pop("bom", None)
         n = next((len(spec[k]) for k in ("questions", "steps", "nodes", "sections") if k in spec), 0)
         done.append((page, cl.walk(spec), n))
     return done

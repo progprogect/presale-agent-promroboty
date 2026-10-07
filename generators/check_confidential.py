@@ -51,7 +51,10 @@ def scan(name: str, text: str, forbid: list[str], allowed: set[int]) -> list[str
         m = re.search(rx, text, re.I)
         if m:
             problems.append(f"{name}: найдено «{m.group(0)}» (правило {rx})")
-    for m in BIG.finditer(text):
+    # крупные числа ищем по видимому тексту: из разметки (атрибуты тегов, координаты SVG)
+    # деньги не утекают, а слитные координаты фигур дают ложные срабатывания
+    visible = re.sub(r"<[^>]*>", "\n", text)  # \n, не пробел: иначе числа соседних ячеек слипаются в «разряды»
+    for m in BIG.finditer(visible):
         n = int(re.sub(r"\D", "", m.group(0)))
         if n >= 100_000 and n not in allowed:
             problems.append(f"{name}: крупное число «{m.group(0)}» не из цен BOM")
