@@ -48,19 +48,22 @@ def render(deal: dict, spec: dict) -> str:
 
     cells = []
     if col_label:
-        cells.append('<div></div>')
-        cells.extend(f'<div class="lane-name" style="background:none;font-weight:600;'
-                     f'justify-content:center">{esc(col_label.get(n, ""))}</div>' for n in cols)
+        cells.append('<div class="lane-col"></div>')
+        cells.extend(f'<div class="lane-col">{esc(col_label.get(n, ""))}</div>' for n in cols)
     for lane in lanes:
         sub = f'<small>{esc(lane["sub"])}</small>' if lane.get("sub") else ""
-        cells.append(f'<div class="lane-name"><div>{esc(lane["name"])}{sub}</div></div>')
+        kind = lane.get("kind", "")
+        cells.append(f'<div class="lane-name {esc(kind)}"><div>{esc(lane["name"])}{sub}</div></div>')
         for n in cols:
             here = [s for s in steps if s["lane"] == lane["id"] and s["n"] == n]
-            inner = "".join(_step(s, lane.get("kind", "")) for s in here)
+            inner = "".join(_step(s, kind) for s in here)
             cells.append(f'<div class="lane-cell">{inner}</div>')
 
-    grid = (f'<div class="lanes" style="grid-template-columns:132px repeat({len(cols)},'
-            f'minmax(140px,1fr))">{"".join(cells)}</div>')
+    # Ширина колонки потока подбирается под число колонок: узкие дорожки лучше читаются,
+    # но карточка не должна быть уже своего содержимого — отсюда нижняя граница 176px.
+    grid = (f'<div class="lanes-wrap"><div class="lanes" '
+            f'style="grid-template-columns:168px repeat({len(cols)},minmax(176px,1fr))">'
+            f'{"".join(cells)}</div></div>')
     cycle = f'<p class="cyc">↻ {esc(spec["cycle"])}</p>' if spec.get("cycle") else ""
     keyfig = f'<p class="keyfig">{esc(spec["key_figure"])}</p>' if spec.get("key_figure") else ""
     head = f'<p class="hint">{esc(spec["title"])}</p>' if spec.get("title") else ""

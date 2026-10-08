@@ -98,21 +98,40 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .verdict{display:flex;gap:10px;align-items:center;margin:5px 0 0 38px;flex-wrap:wrap}
 .verdict label{font-size:12px;display:inline-flex;gap:4px;align-items:center;cursor:pointer;margin:0}
 
-/* Процесс: дорожки участников, шаги по колонкам потока */
-.lanes{display:grid;gap:6px;overflow-x:auto;padding-bottom:4px}
-.lane-name{display:flex;align-items:center;font-size:11.5px;font-weight:600;padding:6px 8px;
-  border-radius:5px;background:var(--tblr-bg-surface-secondary);min-width:120px}
-.lane-name small{display:block;font-weight:400;color:var(--tblr-secondary);font-size:10.5px}
-.pstep{border:1px solid var(--tblr-border-color);border-radius:5px;padding:5px 7px;font-size:11.5px;
-  background:var(--tblr-bg-surface);min-width:132px}
+/* Процесс: дорожки участников, шаги по колонкам потока (swimlane) */
+.lanes-wrap{overflow-x:auto;padding-bottom:8px}
+.lanes{display:grid;gap:0;min-width:100%}
+/* заголовки колонок потока */
+.lane-col{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--tblr-secondary);text-align:center;padding:0 8px 8px;align-self:end}
+/* имя дорожки — прилипает слева при горизонтальной прокрутке */
+.lane-name{display:flex;align-items:center;font-size:11.5px;font-weight:600;padding:10px 10px;
+  background:var(--tblr-bg-surface-secondary);min-width:0;position:sticky;left:0;z-index:3;
+  border-right:1px solid var(--tblr-border-color);
+  box-shadow:3px 0 6px -4px rgba(0,0,0,.18)}
+.lane-name small{display:block;font-weight:400;color:var(--tblr-secondary);font-size:10.5px;
+  margin-top:2px}
+.lane-name.ours{box-shadow:inset 3px 0 0 var(--tblr-primary),3px 0 6px -4px rgba(0,0,0,.18)}
+.lane-name.client{box-shadow:inset 3px 0 0 var(--tblr-orange),3px 0 6px -4px rgba(0,0,0,.18)}
+.lane-name.human{box-shadow:inset 3px 0 0 var(--tblr-secondary),3px 0 6px -4px rgba(0,0,0,.18)}
+/* полоса дорожки: ячейки одной строки образуют сплошную ленту */
+.lane-cell{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;
+  min-width:0;padding:10px 7px;border-bottom:1px solid var(--tblr-border-color)}
+.lane-name{border-bottom:1px solid var(--tblr-border-color)}
+.lanes .lane-row-alt{background:var(--tblr-bg-surface-secondary);opacity:.35}
+.pstep{border:1px solid var(--tblr-border-color);border-radius:6px;padding:7px 9px;font-size:11.5px;
+  background:var(--tblr-bg-surface);min-width:0;width:100%;box-sizing:border-box;
+  box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .pstep .n{font-weight:600;font-size:10.5px;color:var(--tblr-secondary)}
-.pstep .t{font-weight:600;display:block;margin:1px 0}
-.pstep .d{color:var(--tblr-secondary);font-size:10.5px;display:block}
-.pstep .tm{display:inline-block;margin-top:3px;font-size:10.5px;font-weight:600}
-.pstep.par{border-style:dashed}
+.pstep .t{font-weight:600;display:block;margin:2px 0;line-height:1.25}
+.pstep .d{color:var(--tblr-secondary);font-size:10.5px;display:block;line-height:1.35}
+.pstep .tm{display:inline-block;margin-top:5px;font-size:10.5px;font-weight:600;
+  background:var(--tblr-primary-lt);color:var(--tblr-primary);border-radius:4px;padding:1px 6px}
+.pstep.par{border-style:dashed;background:repeating-linear-gradient(135deg,
+  transparent,transparent 7px,rgba(0,0,0,.015) 7px,rgba(0,0,0,.015) 14px),var(--tblr-bg-surface)}
 .pstep.ours{border-color:var(--tblr-primary)}
 .pstep.client{border-color:var(--tblr-orange);background:var(--tblr-orange-lt)}
-.lane-cell{display:flex;align-items:center}
+.pstep.client .tm{background:var(--tblr-orange);color:#fff}
 .cyc{font-size:11.5px;color:var(--tblr-secondary);margin:6px 0 0;padding-left:2px}
 .keyfig{font-size:12.5px;font-weight:600;margin:8px 0 0}
 

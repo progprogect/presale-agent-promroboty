@@ -31,16 +31,17 @@ SPEC_PAGES = {
 def _index(deals: list[dict]) -> str:
     labels = dict(PAGES)
     cards = "".join(f"""
-    <div class="col-md-5 col-lg-4">
-      <div class="card"><div class="card-body">
-        <div class="d-flex align-items-baseline gap-2">
-          <b>{esc(d["title"])}</b><span class="text-secondary">{esc(d["code"])}</span>
-          <span class="badge bg-yellow-lt ms-auto">{esc(d["status"])}</span>
+    <div class="col-md-6 col-lg-4 d-flex">
+      <div class="card flex-fill"><div class="card-body d-flex flex-column">
+        <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+          <span class="dcode">{esc(d["code"])}</span>
+          <span class="badge bg-yellow-lt flex-shrink-0">{esc(d["status"])}</span>
         </div>
-        <div class="text-secondary" style="font-size:12px">{esc(d["version"])} · {esc(str(d["updated"]))}</div>
+        <b class="dtitle">{esc(d["title"])}</b>
+        <div class="text-secondary mt-1" style="font-size:12px">{esc(d["version"])} · {esc(str(d["updated"]))}</div>
         <div class="text-secondary mt-1" style="font-size:11.5px">
           {esc(" · ".join(labels[p] for p in d.get("pages", []) if p != "package"))}</div>
-        <a class="btn btn-sm btn-primary mt-2" href="/d/{esc(d["slug"])}/">Открыть карточку</a>
+        <a class="btn btn-sm btn-primary mt-3 mt-auto" href="/d/{esc(d["slug"])}/">Открыть карточку</a>
       </div></div>
     </div>""" for d in deals)
     return f"""<!doctype html>
@@ -50,7 +51,11 @@ def _index(deals: list[dict]) -> str:
 <title>Портал валидации · ПромРоботы</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="/static/tabler.min.css">
-<style>.wrap{{max-width:1180px;margin:0 auto;padding:24px 16px}}</style></head>
+<style>.wrap{{max-width:1180px;margin:0 auto;padding:24px 16px}}
+.dcode{{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--tblr-secondary)}}
+.dtitle{{font-size:15px;line-height:1.3;display:block}}
+.card-body{{min-height:150px}}</style></head>
 <body><div class="wrap">
   <h2 class="page-title mb-3">Проекты на проверке</h2>
   <div class="row g-3">{cards}</div>
