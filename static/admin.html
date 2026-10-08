@@ -33,6 +33,25 @@ td,th{padding:6px 8px;vertical-align:middle}
   padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;z-index:9}
 .pgchk{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}
 .pgchk label{display:inline-flex;gap:3px;align-items:center;margin:0;cursor:pointer}
+/* Карта системы: открывается по клику, свёрнута в обычный день */
+.map summary{cursor:pointer;font-size:15px;font-weight:600;list-style:none;user-select:none;
+  padding:2px 0;display:flex;align-items:center;gap:8px}
+.map summary::marker,.map summary::-webkit-details-marker{display:none}
+.map summary::before{content:"▸";color:var(--tblr-secondary);font-weight:400}
+.map[open] summary::before{content:"▾"}
+.map summary .m-hint{font-size:12px;font-weight:400;color:var(--tblr-secondary)}
+.map table{width:100%;border-collapse:collapse;margin:10px 0 6px;font-size:12.5px}
+.map th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary);font-weight:600;padding:4px 10px 4px 0;border-bottom:1px solid var(--tblr-border-color)}
+.map td{padding:7px 10px 7px 0;border-bottom:1px solid var(--tblr-border-color);vertical-align:top}
+.map td a{font-weight:600}
+.map h4{font-size:12.5px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary)}
+.map ol,.map ul{margin:0;padding-left:20px;font-size:12.5px}
+.map li{margin:4px 0;line-height:1.5}
+.map .warn{border-left:3px solid var(--tblr-orange);background:var(--tblr-orange-lt);
+  padding:8px 12px;border-radius:6px;font-size:12.5px;margin-top:12px}
+.map code{font-size:11.5px;background:var(--tblr-bg-surface-secondary);padding:1px 5px;border-radius:4px}
 </style></head>
 <body><div class="wrap">
   <div class="pagehead">
@@ -44,6 +63,86 @@ td,th{padding:6px 8px;vertical-align:middle}
       <button class="btn btn-sm" onclick="load()">Обновить</button>
     </div>
   </div>
+
+  <div class="card"><div class="card-body">
+    <details class="map">
+      <summary>Карта системы <span class="m-hint">— где что лежит и что здесь делать</span></summary>
+
+      <h4>Три адреса</h4>
+      <table>
+        <tr><th style="width:190px">Куда</th><th style="width:150px">Кто входит</th><th>Зачем</th></tr>
+        <tr>
+          <td><a href="/pipeline" target="_blank">/pipeline</a><br><span class="muted">Сделки</span></td>
+          <td>только вы, по паролю</td>
+          <td><b>Ваша стартовая страница.</b> Все сделки по стадиям, суммы, сроки, следующий шаг
+            по каждой. На карточке сделки, выложенной на проверку, есть кнопка
+            <b>«Проверка →»</b> — она ведёт на карточку проекта.</td>
+        </tr>
+        <tr>
+          <td><a href="/admin" target="_blank">/admin</a><br><span class="muted">вы здесь</span></td>
+          <td>только вы, по паролю</td>
+          <td>Кого зовём проверять, кто за что отвечает, тексты писем-приглашений.
+            Вверху — таблица, кто какой раздел уже прошёл.</td>
+        </tr>
+        <tr>
+          <td><a href="/" target="_blank">/</a><br><span class="muted">Витрина</span></td>
+          <td>проверяющие, по персональной ссылке</td>
+          <td>Карточки проектов на проверке. Это то, что видит приглашённый специалист.
+            Имя заказчика и наши деньги сюда не выводятся.</td>
+        </tr>
+      </table>
+
+      <h4>Как отправить проект специалисту — пять шагов</h4>
+      <ol>
+        <li><b>Люди</b> (блок внизу этой страницы) — добавьте человека: имя, почта, организация.</li>
+        <li><b>Назначить на проект</b> — выберите человека, проект, его роль и отметьте,
+          какие разделы он смотрит. Галочка <b>«доступ к ТКП»</b> открывает ему ещё и готовое
+          предложение, и исходное задание заказчика.</li>
+        <li>Приглашение уйдёт ему на почту автоматически, по шаблону из блока
+          <b>Шаблоны писем</b>. Текст шаблона правится там же.</li>
+        <li>Человек открывает карточку по своей персональной ссылке, отмечает по каждому пункту
+          «согласен / спорно / неверно» и пишет замечания. Наша версия при этом не затирается —
+          его правки ложатся отдельным слоем.</li>
+        <li>Следите за ходом в таблице <b>Пайплайн</b> вверху: точка — раздел не открывали,
+          <span class="b-upd">N!</span> — есть правки без завершения, <span class="b-done">✓ имя</span> — проверка завершена.</li>
+      </ol>
+
+      <h4>Роли — кто что проверяет</h4>
+      <ul>
+        <li><b>Delivery-менеджер</b> — всё по проекту; только он принимает пакет целиком,
+          и до этого ТКП не собирается.</li>
+        <li><b>Технолог</b> — компоновка ячейки и всё вокруг неё.</li>
+        <li><b>Электрик</b> — электрика и электросеть. <b>Подрядчик по роботам</b> — КД и установка
+          робота. <b>Специалист по ПО</b> — программная часть.</li>
+        <li><b>Наблюдатель</b> — только смотрит, ничего не правит.</li>
+      </ul>
+
+      <h4>Карточка проекта — шесть вкладок</h4>
+      <ul>
+        <li><b>Обзор</b> — что нужно проверить, исходное задание заказчика и приёмка пакета.</li>
+        <li><b>Вводные</b> — на чём стоит решение. Жёлтое — наши предположения: если предположение
+          неверно, дальше неверно всё. Начинать стоит отсюда.</li>
+        <li><b>Процесс</b> — как идёт поток по дорожкам и где граница нашей поставки.</li>
+        <li><b>Решение</b> — компоновка на один лист: что стоит, зачем, и почему не иначе.</li>
+        <li><b>Декомпозиция</b> — пакеты работ, роли, часы и основание каждой оценки.</li>
+        <li><b>Компоненты</b> — состав комплекта, модели, цены закупки и сроки.</li>
+      </ul>
+
+      <h4>Порядок работы по проекту</h4>
+      <p style="font-size:12.5px;margin:0">
+        Пакет собирается → выкладывается карточкой → специалисты смотрят свои части →
+        delivery-менеджер принимает пакет целиком → <b>только после этого</b> собирается ТКП →
+        возвращается в ту же карточку вкладкой «ТКП» на последний просмотр.
+        Письмо заказчику уходит после вашего «да», как и раньше.
+      </p>
+
+      <div class="warn">
+        <b>Что проверяющие не видят никогда:</b> имя конечного заказчика, нашу себестоимость,
+        маржу и ставки. Исходное задание заказчика и готовое ТКП открываются только тем,
+        кому вы отметили «доступ к ТКП», либо вам после входа сюда.
+      </div>
+    </details>
+  </div></div>
 
   <div class="card"><div class="card-body">
     <h3>Пайплайн</h3>
