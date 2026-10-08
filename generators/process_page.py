@@ -26,56 +26,94 @@ FLOW_JS = r"""
         src=document.getElementById('flows');
   if(!grid||!svg||!src)return;
   let flows=[];try{flows=JSON.parse(src.textContent)||[]}catch(e){return}
-  const card=id=>grid.querySelector('.pstep[data-sid="'+CSS.escape(id)+'"]');
   const NS='http://www.w3.org/2000/svg';
+  const G=9;      // половина коридора между карточками
+  const PAD=5;    // зазор, с которым линия считается задевшей карточку
+  const TIP=8;    // на столько не доводим линию до карточки — там рисуется наконечник
+
+  // Линия не должна пересекать чужие карточки. Поэтому для каждой связи перебираем
+  // несколько вариантов геометрии и берём первый, который ни во что не упирается.
+  function hit(x1,y1,x2,y2,rects,skip){
+    const ax=Math.min(x1,x2)-PAD,bx=Math.max(x1,x2)+PAD;
+    const ay=Math.min(y1,y2)-PAD,by=Math.max(y1,y2)+PAD;
+    for(const r of rects){
+      if(r===skip[0]||r===skip[1])continue;
+      if(bx>r.l&&ax<r.r&&by>r.t&&ay<r.b)return true;
+    }
+    return false;
+  }
+  function clean(pts,rects,skip){
+    for(let i=0;i<pts.length-1;i++)
+      if(hit(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1],rects,skip))return false;
+    return true;
+  }
+  // укорачиваем последний отрезок, чтобы наконечник не налезал на карточку
+  function trim(pts){
+    const n=pts.length,p1=pts[n-2],p2=pts[n-1];
+    const dx=p2[0]-p1[0],dy=p2[1]-p1[1],L=Math.hypot(dx,dy)||1;
+    return pts.slice(0,n-1).concat([[p2[0]-dx/L*TIP,p2[1]-dy/L*TIP]]);
+  }
+  const d=pts=>'M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L');
+
+  function routes(a,b){
+    const out=[];
+    const sameCol=Math.abs(b.cx-a.cx)<30;
+    // 1. соседние по вертикали в одной колонке — прямая линия
+    if(sameCol&&b.t>=a.b) out.push([[a.cx,a.b],[a.cx,b.t]]);
+    if(sameCol&&b.b<=a.t) out.push([[a.cx,a.t],[a.cx,b.b]]);   // цель выше: выходим вверх
+    // 2. вперёд по потоку — колено в коридоре между колонками
+    if(b.l>=a.r-1){
+      const mx=(a.r+b.l)/2;
+      out.push([[a.r,a.cy],[mx,a.cy],[mx,b.cy],[b.l,b.cy]]);
+    }
+    // 3. обход понизу и поверху — когда прямые пути заняты
+    const yb=Math.max(a.b,b.b)+G*2, yt=Math.min(a.t,b.t)-G*2;
+    const xr=Math.max(a.r,b.r)+G,  xl=Math.min(a.l,b.l)-G;
+    out.push([[a.cx,a.b],[a.cx,yb],[b.cx,yb],[b.cx,b.b]]);
+    out.push([[a.cx,a.t],[a.cx,yt],[b.cx,yt],[b.cx,b.t]]);
+    out.push([[a.r,a.cy],[xr,a.cy],[xr,b.cy],[b.r,b.cy]]);
+    out.push([[a.l,a.cy],[xl,a.cy],[xl,b.cy],[b.l,b.cy]]);
+    return out;
+  }
 
   function draw(){
     while(svg.firstChild)svg.removeChild(svg.firstChild);
     const gb=grid.getBoundingClientRect();
+    const R=el=>{const r=el.getBoundingClientRect();
+      return {el:el,l:r.left-gb.left,t:r.top-gb.top,
+              r:r.left-gb.left+r.width,b:r.top-gb.top+r.height,
+              cx:r.left-gb.left+r.width/2,cy:r.top-gb.top+r.height/2};};
+    const rects=[...grid.querySelectorAll('.pstep')].map(R);
+    const byId={};for(const r of rects)byId[r.el.dataset.sid]=r;
     svg.setAttribute('viewBox','0 0 '+grid.scrollWidth+' '+grid.scrollHeight);
     svg.setAttribute('width',grid.scrollWidth);
     svg.setAttribute('height',grid.scrollHeight);
     const defs=document.createElementNS(NS,'defs');
-    defs.innerHTML='<marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7"'
-      +' markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="currentColor"/></marker>';
+    defs.innerHTML='<marker id="ah" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="6.5"'
+      +' markerHeight="6.5" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="currentColor"/></marker>';
     svg.appendChild(defs);
-    const R=el=>{const r=el.getBoundingClientRect();
-      return {l:r.left-gb.left,t:r.top-gb.top,w:r.width,h:r.height,
-              r:r.left-gb.left+r.width,b:r.top-gb.top+r.height,
-              cx:r.left-gb.left+r.width/2,cy:r.top-gb.top+r.height/2};};
     for(const f of flows){
-      const A=card(f.a),B=card(f.b);
-      if(!A||!B)continue;
-      const a=R(A),b=R(B);
-      let d;
-      if(b.l>=a.r-1){                       // вперёд по потоку
-        const mx=a.r+Math.max(10,(b.l-a.r)/2);
-        d='M'+a.r+' '+a.cy+' H'+mx+' V'+b.cy+' H'+(b.l-7);
-      }else if(Math.abs(b.cx-a.cx)<4){      // вниз в той же колонке
-        d='M'+a.cx+' '+a.b+' V'+(b.t-7);
-      }else{                                // назад: обводим снизу
-        const y=Math.max(a.b,b.b)+12;
-        d='M'+a.cx+' '+a.b+' V'+y+' H'+b.cx+' V'+(b.b+7);
-      }
+      const a=byId[f.a],b=byId[f.b];
+      if(!a||!b)continue;
+      const cands=routes(a,b);
+      let pts=cands.find(c=>clean(c,rects,[a,b]))||cands[0];
       const p=document.createElementNS(NS,'path');
-      p.setAttribute('d',d);
+      p.setAttribute('d',d(trim(pts)));
       p.setAttribute('class','fl'+(f.kind==='par'?' par':''));
       p.setAttribute('marker-end','url(#ah)');
       svg.appendChild(p);
       if(f.label){
-        const mx=(a.r+b.l)/2,my=(a.cy+b.cy)/2-6;
-        const g=document.createElementNS(NS,'g');
+        const m=pts[Math.floor(pts.length/2)];
         const tx=document.createElementNS(NS,'text');
-        tx.setAttribute('x',mx);tx.setAttribute('y',my);
+        tx.setAttribute('x',m[0]);tx.setAttribute('y',m[1]-5);
         tx.setAttribute('class','fllab');tx.textContent=f.label;
-        g.appendChild(tx);svg.appendChild(g);
+        svg.appendChild(tx);
       }
     }
   }
   draw();
   addEventListener('resize',draw);
   if(window.ResizeObserver)new ResizeObserver(draw).observe(grid);
-  // карточки раскрывают поле комментария — после этого размеры меняются
   grid.addEventListener('click',()=>setTimeout(draw,0));
 })();
 """
