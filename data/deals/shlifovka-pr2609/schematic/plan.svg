@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 608 791" font-family="'IBM Plex Sans',Arial,sans-serif" role="img" aria-label="Ячейка перекладки блоков на мокрой шлифовке — планировка">
+<rect x="0" y="0" width="608" height="791" fill="#ffffff"/>
+<rect x="50.0" y="523.9" width="448.0" height="175.0" fill="#c2570c" opacity="0.1" stroke="#c2570c" stroke-dasharray="4 3"/>
+<text x="274.0" y="611.4" text-anchor="middle" fill="#c2570c" font-size="10.5" font-weight="600">Проезд и маневр рохли 6,4 × 2,5 м (вне ограждения)</text>
+<rect x="88.5" y="395.8" width="147.0" height="133.0" fill="#a97a1b" opacity="0.1" stroke="#a97a1b" stroke-dasharray="4 3"/>
+<text x="162.0" y="411.8" text-anchor="middle" fill="#a97a1b" font-size="10.5" font-weight="600">Зона поста ВХОД</text>
+<rect x="298.5" y="395.8" width="147.0" height="133.0" fill="#a97a1b" opacity="0.1" stroke="#a97a1b" stroke-dasharray="4 3"/>
+<text x="372.0" y="411.8" text-anchor="middle" fill="#a97a1b" font-size="10.5" font-weight="600">Зона поста ВЫХОД</text>
+<rect x="57.0" y="284.5" width="434.0" height="21.0" fill="#c2570c" opacity="0.1" stroke="#c2570c" stroke-dasharray="4 3"/>
+<text x="456.0" y="300.6" text-anchor="start" fill="#c2570c" font-size="10.5" font-weight="600">канал</text>
+<circle cx="274.0" cy="372.0" r="217.0" fill="#1f66c4" opacity="0.1"/>
+<circle cx="274.0" cy="372.0" r="217.0" fill="none" stroke="#1f66c4" stroke-width="1.2" stroke-dasharray="4 4"/>
+<g class="pobj" data-pos="3"><polygon points="242.5,340.5 305.5,340.5 305.5,403.5 242.5,403.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="5"><line x1="119.8" y1="88.5" x2="127.2" y2="88.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="119.8" y1="144.5" x2="127.2" y2="144.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="119.8" y1="200.5" x2="127.2" y2="200.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="119.8" y1="256.5" x2="127.2" y2="256.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="119.8" y1="312.5" x2="127.2" y2="312.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="121.4" y1="72.4" x2="121.4" y2="328.6" stroke="#5c6b7e" stroke-width="1.8"/>
+<line x1="125.6" y1="72.4" x2="125.6" y2="328.6" stroke="#5c6b7e" stroke-width="1.8"/></g>
+<g class="pobj" data-pos="5"><line x1="420.8" y1="88.5" x2="428.2" y2="88.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="420.8" y1="144.5" x2="428.2" y2="144.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="420.8" y1="200.5" x2="428.2" y2="200.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="420.8" y1="256.5" x2="428.2" y2="256.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="420.8" y1="312.5" x2="428.2" y2="312.5" stroke="#c2cedd" stroke-width="2"/>
+<line x1="422.4" y1="72.4" x2="422.4" y2="328.6" stroke="#5c6b7e" stroke-width="1.8"/>
+<line x1="426.6" y1="72.4" x2="426.6" y2="328.6" stroke="#5c6b7e" stroke-width="1.8"/></g>
+<g class="pobj" data-pos="12"><polygon points="127.0,425.9 145.2,425.9 145.2,428.7 127.0,428.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="124.2,428.7 127.0,428.7 127.0,446.9 124.2,446.9" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="127.0,512.7 145.2,512.7 145.2,515.5 127.0,515.5" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="124.2,494.5 127.0,494.5 127.0,512.7 124.2,512.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="178.8,425.9 197.0,425.9 197.0,428.7 178.8,428.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="197.0,428.7 199.8,428.7 199.8,446.9 197.0,446.9" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="178.8,512.7 197.0,512.7 197.0,515.5 178.8,515.5" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="197.0,494.5 199.8,494.5 199.8,512.7 197.0,512.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="130.5,423.1 193.5,423.1 193.5,427.3 130.5,427.3" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/></g>
+<g class="pobj" data-pos="12"><polygon points="337.0,425.9 355.2,425.9 355.2,428.7 337.0,428.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="334.2,428.7 337.0,428.7 337.0,446.9 334.2,446.9" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="337.0,512.7 355.2,512.7 355.2,515.5 337.0,515.5" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="334.2,494.5 337.0,494.5 337.0,512.7 334.2,512.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="388.8,425.9 407.0,425.9 407.0,428.7 388.8,428.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="407.0,428.7 409.8,428.7 409.8,446.9 407.0,446.9" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="388.8,512.7 407.0,512.7 407.0,515.5 388.8,515.5" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="407.0,494.5 409.8,494.5 409.8,512.7 407.0,512.7" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="340.5,423.1 403.5,423.1 403.5,427.3 340.5,427.3" fill="#c1cfe0" stroke="#c2cedd" stroke-width="1.0" stroke-linejoin="round"/></g>
+<polygon points="127.0,428.7 197.0,428.7 197.0,512.7 127.0,512.7" fill="#fbefe3" stroke="#dcc3a8" stroke-width="1.2" stroke-linejoin="round"/>
+<line x1="129.1" y1="435.7" x2="194.9" y2="435.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="129.1" y1="449.7" x2="194.9" y2="449.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="129.1" y1="463.7" x2="194.9" y2="463.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="129.1" y1="477.7" x2="194.9" y2="477.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="129.1" y1="491.7" x2="194.9" y2="491.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="129.1" y1="505.7" x2="194.9" y2="505.7" stroke="#c2cedd" stroke-width="0.8"/>
+<polygon points="337.0,428.7 407.0,428.7 407.0,512.7 337.0,512.7" fill="#fbefe3" stroke="#dcc3a8" stroke-width="1.2" stroke-linejoin="round"/>
+<line x1="339.1" y1="435.7" x2="404.9" y2="435.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="339.1" y1="449.7" x2="404.9" y2="449.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="339.1" y1="463.7" x2="404.9" y2="463.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="339.1" y1="477.7" x2="404.9" y2="477.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="339.1" y1="491.7" x2="404.9" y2="491.7" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="339.1" y1="505.7" x2="404.9" y2="505.7" stroke="#c2cedd" stroke-width="0.8"/>
+<g class="pobj" data-pos="7"><polygon points="119.3,137.5 127.7,137.5 127.7,172.5 119.3,172.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="7"><polygon points="420.3,137.5 428.7,137.5 428.7,172.5 420.3,172.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<polygon points="129.1,429.8 194.9,429.8 194.9,511.6 129.1,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<polygon points="339.0,429.8 351.8,429.8 351.8,511.6 339.0,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<polygon points="352.3,429.8 365.1,429.8 365.1,511.6 352.3,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<polygon points="365.6,429.8 378.4,429.8 378.4,511.6 365.6,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<g class="pobj" data-pos="12"><polygon points="203.6,422.0 208.6,422.0 208.6,426.9 203.6,426.9" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="12"><polygon points="413.7,422.0 418.6,422.0 418.6,426.9 413.7,426.9" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="12"><polygon points="203.0,422.0 209.2,422.0 209.2,426.9 203.0,426.9" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="12"><polygon points="413.0,422.0 419.2,422.0 419.2,426.9 413.0,426.9" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<polygon points="129.1,429.8 194.9,429.8 194.9,511.6 129.1,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<g class="pobj" data-pos="1"><polygon points="246.0,344.0 302.0,344.0 302.0,400.0 246.0,400.0" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/>
+<circle cx="274.0" cy="372.0" r="5" fill="#1f66c4"/></g>
+<polygon points="129.1,429.8 194.9,429.8 194.9,511.6 129.1,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<g class="pobj" data-pos="11"><polygon points="320.2,524.6 423.8,524.6 423.8,528.8 320.2,528.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="320.2,412.6 423.8,412.6 423.8,416.8 320.2,416.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="320.9,418.9 325.1,418.9 325.1,522.5 320.9,522.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="418.9,418.9 423.1,418.9 423.1,522.5 418.9,522.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="320.2,523.9 325.8,523.9 325.8,529.5 320.2,529.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="320.2,411.9 325.8,411.9 325.8,417.5 320.2,417.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="418.2,523.9 423.8,523.9 423.8,529.5 418.2,529.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="11"><polygon points="418.2,411.9 423.8,411.9 423.8,417.5 418.2,417.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="18"><polygon points="143.6,87.1 404.4,87.1 404.4,225.0 143.6,225.0" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="9"><polygon points="141.0,225.7 407.0,225.7 407.0,299.9 141.0,299.9" fill="#eef2f8" stroke="#c2cedd" stroke-width="1.2" stroke-linejoin="round"/>
+<line x1="141.0" y1="225.7" x2="407.0" y2="299.9" stroke="#c2cedd" stroke-width="0.8"/>
+<line x1="407.0" y1="225.7" x2="141.0" y2="299.9" stroke="#c2cedd" stroke-width="0.8"/></g>
+<g class="pobj" data-pos="17"><polygon points="148.0,89.5 400.0,89.5 400.0,222.5 148.0,222.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="7"><polygon points="119.3,148.0 127.7,148.0 127.7,162.0 119.3,162.0" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="7"><polygon points="420.3,148.0 428.7,148.0 428.7,162.0 420.3,162.0" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<polygon points="129.2,429.8 181.6,429.8 181.6,511.6 129.2,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<polygon points="195.2,429.8 208.1,429.8 208.1,511.6 195.2,511.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<g class="pobj" data-pos="10"><polygon points="122.8,428.3 127.0,428.3 127.0,513.0 122.8,513.0" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="10"><polygon points="124.9,419.6 199.1,419.6 199.1,423.8 124.9,423.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="10"><polygon points="124.9,517.6 199.1,517.6 199.1,521.8 124.9,521.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="9"><polygon points="139.6,227.8 142.4,227.8 142.4,297.8 139.6,297.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="9"><polygon points="405.6,227.8 408.4,227.8 408.4,297.8 405.6,297.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<polygon points="151.2,283.6 396.9,283.6 396.9,296.6 151.2,296.6" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<polygon points="151.2,270.3 396.9,270.3 396.9,283.3 151.2,283.3" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<g class="pobj" data-pos="10"><polygon points="94.1,446.2 120.7,446.2 120.7,495.2 94.1,495.2" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="12"><polygon points="225.3,534.0 233.1,534.0 233.1,541.8 225.3,541.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="12"><polygon points="435.3,534.0 443.0,534.0 443.0,541.8 435.3,541.8" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="6"><polygon points="113.7,143.1 127.7,143.1 127.7,166.9 113.7,166.9" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="6"><polygon points="420.3,143.1 434.3,143.1 434.3,166.9 420.3,166.9" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="7"><polygon points="120.0,150.4 141.0,150.4 141.0,159.6 120.0,159.6" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="7"><polygon points="407.0,150.4 428.0,150.4 428.0,159.6 407.0,159.6" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="13"><polygon points="204.3,525.0 209.3,525.0 209.3,529.2 204.3,529.2" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="13"><polygon points="414.4,525.0 419.2,525.0 419.2,529.2 414.4,529.2" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="7"><polygon points="141.0,150.4 407.0,150.4 407.0,159.6 141.0,159.6" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="8"><polygon points="146.6,149.5 401.4,149.5 401.4,151.2 146.6,151.2" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="2"><polygon points="65.0,305.5 96.6,305.5 96.6,354.5 65.0,354.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="16"><polygon points="65.0,361.5 96.6,361.5 96.6,410.5 65.0,410.5" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<polygon points="314.9,256.8 396.9,256.8 396.9,270.1 314.9,270.1" stroke="#c2cedd" stroke-width="1.2" fill="#dce5f0"/>
+<g class="pobj" data-pos="12"><polygon points="220.1,535.8 238.3,535.8 238.3,548.4 220.1,548.4" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="12"><polygon points="430.1,535.8 448.3,535.8 448.3,548.4 430.1,548.4" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="15"><polygon points="328.6,154.3 345.4,154.3 345.4,162.7 328.6,162.7" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="8"><polygon points="163.4,147.6 166.2,147.6 166.2,148.7 163.4,148.7" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="8"><polygon points="218.0,147.6 220.8,147.6 220.8,148.7 218.0,148.7" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="8"><polygon points="272.6,147.6 275.4,147.6 275.4,148.7 272.6,148.7" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="8"><polygon points="327.2,147.6 330.0,147.6 330.0,148.7 327.2,148.7" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="8"><polygon points="381.8,147.6 384.6,147.6 384.6,148.7 381.8,148.7" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="4"><polygon points="318.1,255.1 320.9,255.1 320.9,278.6 318.1,278.6" fill="#d3dce8" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="336.3,255.1 339.1,255.1 339.1,278.6 336.3,278.6" fill="#d3dce8" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="354.5,255.1 357.3,255.1 357.3,278.6 354.5,278.6" fill="#d3dce8" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="372.7,255.1 375.5,255.1 375.5,278.6 372.7,278.6" fill="#d3dce8" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="390.9,255.1 393.7,255.1 393.7,278.6 390.9,278.6" fill="#d3dce8" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="312.2,255.1 399.7,255.1 399.7,271.9 312.2,271.9" fill="#eef2f8" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round" opacity="0.78"/>
+<polygon points="312.2,278.6 399.7,278.6 399.7,282.8 312.2,282.8" fill="#dfe7f2" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/>
+<polygon points="334.9,274.4 376.9,274.4 376.9,297.1 334.9,297.1" fill="#f7fafd" stroke="#5c6b7e" stroke-width="1.0" stroke-linejoin="round"/></g>
+<g class="pobj" data-pos="18"><polygon points="81.5,214.5 109.5,214.5 109.5,242.5 81.5,242.5" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="18"><polygon points="81.5,69.6 109.5,69.6 109.5,97.6 81.5,97.6" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="18"><polygon points="438.5,214.5 466.5,214.5 466.5,242.5 438.5,242.5" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="18"><polygon points="438.5,69.6 466.5,69.6 466.5,97.6 438.5,97.6" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="18"><polygon points="103.6,140.3 135.1,140.3 135.1,171.8 103.6,171.8" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="18"><polygon points="81.5,214.5 466.5,214.5 466.5,242.5 81.5,242.5" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="18"><polygon points="81.5,69.6 466.5,69.6 466.5,97.6 81.5,97.6" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="15"><polygon points="436.4,276.8 444.8,276.8 444.8,285.2 436.4,285.2" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="15"><polygon points="412.6,276.1 442.0,276.1 442.0,290.1 412.6,290.1" stroke="#c2cedd" stroke-width="1.2" fill="#eef2f8"/></g>
+<g class="pobj" data-pos="18"><polygon points="94.8,55.6 143.8,55.6 143.8,256.5 94.8,256.5" stroke="#dcc3a8" stroke-width="1.2" fill="#fbefe3" opacity="0.5"/></g>
+<g class="pobj" data-pos="13"><line x1="113.0" y1="523.9" x2="211.0" y2="523.9" stroke="#1f66c4" stroke-width="3.5" stroke-linecap="round"/>
+<line x1="113.0" y1="523.9" x2="211.0" y2="523.9" stroke="#1f66c4" stroke-width="3.5" stroke-linecap="round"/></g>
+<g class="pobj" data-pos="13"><line x1="323.0" y1="523.9" x2="421.0" y2="523.9" stroke="#1f66c4" stroke-width="3.5" stroke-linecap="round"/>
+<line x1="323.0" y1="523.9" x2="421.0" y2="523.9" stroke="#1f66c4" stroke-width="3.5" stroke-linecap="round"/></g>
+<g class="pobj" data-pos="14"><line x1="99.0" y1="243.9" x2="109.5" y2="243.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="129.8" y1="243.9" x2="142.4" y2="243.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="405.6" y1="243.9" x2="418.2" y2="243.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="438.5" y1="243.9" x2="449.0" y2="243.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="449.0" y1="243.9" x2="449.0" y2="523.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="99.0" y1="523.9" x2="113.0" y2="523.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="211.0" y1="523.9" x2="323.0" y2="523.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="421.0" y1="523.9" x2="449.0" y2="523.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/>
+<line x1="99.0" y1="243.9" x2="99.0" y2="523.9" stroke="#17202c" stroke-width="2" stroke-dasharray="7 4"/></g>
+<line x1="99.0" y1="523.9" x2="99.0" y2="575.0" stroke="#5c6b7e" stroke-width="0.8" stroke-dasharray="2 2"/>
+<line x1="449.0" y1="523.9" x2="449.0" y2="575.0" stroke="#5c6b7e" stroke-width="0.8" stroke-dasharray="2 2"/>
+<line x1="99.0" y1="575.0" x2="449.0" y2="575.0" stroke="#17202c" stroke-width="1.1"/>
+<polygon points="99.0,575.0 108.0,578.0 108.0,572.0" fill="#17202c"/>
+<line x1="99.0" y1="580.0" x2="99.0" y2="570.0" stroke="#17202c" stroke-width="1.1"/>
+<polygon points="449.0,575.0 440.0,578.0 440.0,572.0" fill="#17202c"/>
+<line x1="449.0" y1="580.0" x2="449.0" y2="570.0" stroke="#17202c" stroke-width="1.1"/>
+<text x="274.0" y="569.0" font-family="'IBM Plex Mono',Menlo,monospace" font-size="11" font-weight="500" text-anchor="middle" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round">5,00 м</text>
+<text x="274.0" y="569.0" font-family="'IBM Plex Mono',Menlo,monospace" font-size="11" font-weight="500" text-anchor="middle" fill="#17202c">5,00 м</text>
+<line x1="99.0" y1="243.9" x2="58.4" y2="243.9" stroke="#5c6b7e" stroke-width="0.8" stroke-dasharray="2 2"/>
+<line x1="99.0" y1="523.9" x2="58.4" y2="523.9" stroke="#5c6b7e" stroke-width="0.8" stroke-dasharray="2 2"/>
+<line x1="58.4" y1="243.9" x2="58.4" y2="523.9" stroke="#17202c" stroke-width="1.1"/>
+<polygon points="58.4,243.9 55.4,252.9 61.4,252.9" fill="#17202c"/>
+<line x1="53.4" y1="243.9" x2="63.4" y2="243.9" stroke="#17202c" stroke-width="1.1"/>
+<polygon points="58.4,523.9 55.4,514.9 61.4,514.9" fill="#17202c"/>
+<line x1="53.4" y1="523.9" x2="63.4" y2="523.9" stroke="#17202c" stroke-width="1.1"/>
+<text x="51.4" y="383.9" font-family="'IBM Plex Mono',Menlo,monospace" font-size="11" font-weight="500" text-anchor="middle" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round" transform="rotate(-90 51.4 383.9)">4,27 м</text>
+<text x="51.4" y="383.9" font-family="'IBM Plex Mono',Menlo,monospace" font-size="11" font-weight="500" text-anchor="middle" fill="#17202c" transform="rotate(-90 51.4 383.9)">4,27 м</text>
+<g class="pnum" data-pos="3"><circle cx="230.5" cy="330.5" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="230.5" y="334.0" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">3</text></g>
+<g class="pnum" data-pos="5"><circle cx="107.3" cy="61.0" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="107.3" y="64.5" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">5</text></g>
+<g class="pnum" data-pos="12"><circle cx="115.0" cy="418.7" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="115.0" y="422.2" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">12</text></g>
+<g class="pnum" data-pos="1"><circle cx="234.0" cy="355.0" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="234.0" y="358.5" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">1</text></g>
+<g class="pnum" data-pos="11"><circle cx="308.2" cy="514.6" r="9" fill="#fff4d6" stroke="#c98a00" stroke-width="1.9"/><text x="308.2" y="518.1" text-anchor="middle" fill="#c98a00" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">11</text></g>
+<g class="pnum" data-pos="18"><circle cx="131.6" cy="77.1" r="9" fill="#ffffff" stroke="#c2570c" stroke-width="1.2"/><text x="131.6" y="80.6" text-anchor="middle" fill="#c2570c" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">18</text></g>
+<g class="pnum" data-pos="9"><circle cx="129.0" cy="215.7" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="129.0" y="219.2" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">9</text></g>
+<g class="pnum" data-pos="17"><circle cx="136.0" cy="100.5" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="136.0" y="104.0" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">17</text></g>
+<g class="pnum" data-pos="10"><circle cx="82.1" cy="436.2" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="82.1" y="439.7" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">10</text></g>
+<g class="pnum" data-pos="6"><circle cx="101.7" cy="133.1" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="101.7" y="136.6" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">6</text></g>
+<g class="pnum" data-pos="7"><circle cx="129.0" cy="140.4" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="129.0" y="143.9" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">7</text></g>
+<g class="pnum" data-pos="8"><circle cx="134.6" cy="160.5" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="134.6" y="164.0" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">8</text></g>
+<g class="pnum" data-pos="2"><circle cx="53.0" cy="295.5" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="53.0" y="299.0" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">2</text></g>
+<g class="pnum" data-pos="16"><circle cx="53.0" cy="351.5" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="53.0" y="355.0" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">16</text></g>
+<g class="pnum" data-pos="4"><circle cx="300.2" cy="245.1" r="9" fill="#fff4d6" stroke="#c98a00" stroke-width="1.9"/><text x="300.2" y="248.6" text-anchor="middle" fill="#c98a00" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">4</text></g>
+<g class="pnum" data-pos="15"><circle cx="424.4" cy="266.8" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="424.4" y="270.3" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">15</text></g>
+<g class="pnum" data-pos="13"><circle cx="225.0" cy="523.9" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="225.0" y="527.4" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">13</text></g>
+<g class="pnum" data-pos="14"><circle cx="463.0" cy="383.9" r="9" fill="#ffffff" stroke="#1f66c4" stroke-width="1.2"/><text x="463.0" y="387.4" text-anchor="middle" fill="#1f66c4" font-family="'IBM Plex Mono',Menlo,monospace" font-size="10.5" font-weight="600">14</text></g>
+<line x1="50" y1="725.0" x2="120" y2="725.0" stroke="#17202c" stroke-width="1.5"/>
+<line x1="50" y1="721.0" x2="50" y2="729.0" stroke="#17202c" stroke-width="1.5"/>
+<line x1="120" y1="721.0" x2="120" y2="729.0" stroke="#17202c" stroke-width="1.5"/>
+<text x="130" y="729.0" fill="#5c6b7e" font-size="10.5">1 м</text>
+<circle cx="57.0" cy="759.0" r="6.5" fill="#ffffff" stroke="#1f66c4" stroke-width="1.6"/>
+<text x="69.0" y="762.5" fill="#5c6b7e" font-size="10.5">в поставке</text>
+<circle cx="152.0" cy="759.0" r="6.5" fill="#ffffff" stroke="#c2570c" stroke-width="1.6"/>
+<text x="164.0" y="762.5" fill="#5c6b7e" font-size="10.5">оборудование заказчика, вне поставки</text>
+<circle cx="392.6" cy="759.0" r="6.5" fill="#fff4d6" stroke="#c98a00" stroke-width="1.6"/>
+<text x="404.6" y="762.5" fill="#5c6b7e" font-size="10.5">узел в проработке, см. примечание</text>
+</svg>
