@@ -15,6 +15,7 @@ import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
+from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -166,6 +167,25 @@ def deal_proposal_file(slug: str, name: str, u: str | None = None) -> FileRespon
     if DB_URL and not _kp_allowed(slug, u):
         raise HTTPException(403, "доступ к ТКП выдаётся отдельно")
     return _deal_file(slug, "proposal", name)
+
+
+@app.get("/d/{slug}/tz/{name}")
+def deal_tz_file(request: Request, slug: str, name: str, u: str | None = None):
+    """Задание заказчика. В нём есть имя конечного заказчика, которое на портале не раскрывается,
+    поэтому: (1) сам файл в публичном репозитории НЕ лежит — он приходит защищённым каналом
+    выгрузки и хранится рядом с пайплайном; (2) отдаётся либо по персональной ссылке
+    назначенного с доступом к ТКП, либо после входа в админку (это директор)."""
+    if not _kp_allowed(slug, u):
+        _admin_auth(request)      # поднимет 401 с окном входа — директор откроет файл прямо из карточки
+    if "/" in slug or ".." in slug or "/" in name or ".." in name:
+        raise HTTPException(404)
+    got = _pipeline_get(f"cardtz/{slug}/{name}")
+    if got:
+        data, ct = got
+        return Response(content=data, media_type=ct,
+                        headers={"Content-Disposition": f'inline; filename="{quote(name)}"',
+                                 "Cache-Control": "no-store"})
+    return _deal_file(slug, "tz", name)   # запасной путь: файл лежит локально (режим разработки)
 
 
 # ---------- Пайплайн: полный внутренний дашборд под паролем ----------

@@ -305,6 +305,18 @@ def main() -> None:
     n_files = copy_files(rules, base, out_dir)
     if n_files:
         print(f"Файлы карточки: скопировано {n_files}")
+    # Имена файлов задания — в deal.yaml: сами файлы в публичный репозиторий не идут,
+    # а карточка на Railway собирается из того, что в репозитории есть.
+    tz_dir = out_dir / "tz"
+    tz_names = sorted(f.name for f in tz_dir.iterdir() if f.is_file()) if tz_dir.is_dir() else []
+    deal_yaml = out_dir / "deal.yaml"
+    if deal_yaml.exists():
+        d = yaml.safe_load(deal_yaml.read_text(encoding="utf-8")) or {}
+        if list(d.get("tz_files") or []) != tz_names:
+            d["tz_files"] = tz_names
+            deal_yaml.write_text(yaml.dump(d, allow_unicode=True, sort_keys=False, width=100),
+                                 encoding="utf-8")
+            print(f"deal.yaml: записаны имена файлов задания ({len(tz_names)})")
     print(f"WBS: {ws['packages']} пакетов, {ws['hours']:.0f} ч; опции: {ws['opt_packages']} пак., "
           f"{ws['opt_hours']:.0f} ч")
     print(f"BOM: {bs['items']} позиций, сумма {bs['total']:.0f}, вилка {bs['lo']:.0f}–{bs['hi']:.0f} BYN, "

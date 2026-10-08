@@ -23,6 +23,9 @@ EXTRA_CSS = """
 .pagehead h2{margin:0}
 .pagehead .chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 .hint{font-size:12.5px;color:var(--tblr-secondary);margin:0 0 12px}
+/* Атрибут hidden обязан скрывать: у Tabler .alert{display:block} перебивал его,
+   из-за чего памятка «Как работать?» висела открытой всегда */
+[hidden]{display:none!important}
 .tablebox{overflow-x:auto}
 table.matrix{min-width:980px;font-variant-numeric:tabular-nums;font-size:13px}
 table.matrix th,table.matrix td{padding:6px 8px}
@@ -70,14 +73,34 @@ tr.stageio td{background:var(--tblr-bg-surface-tertiary);padding:10px 12px}
 #tips{font-size:12.5px}
 #tips ul{margin:4px 0 0;padding-left:18px}
 #tips li{margin:2px 0}
-.ctx{border:1px solid var(--tblr-border-color);border-radius:6px;background:var(--tblr-bg-surface);
-  padding:10px 14px;margin:0 0 12px;font-size:12.5px}
-.ctx p{margin:0 0 6px}
+.ctx{margin:0 0 14px;font-size:12.5px}
+.ctx .ask{border:1px solid var(--tblr-border-color);border-left:3px solid var(--tblr-primary);
+  border-radius:6px;background:var(--tblr-bg-surface);padding:10px 14px}
 .ctx b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
-  color:var(--tblr-secondary);margin-bottom:2px}
+  color:var(--tblr-secondary);margin-bottom:4px}
 .ctx ul{margin:0;padding-left:18px}
-.ctx li{margin:1px 0}
-.ctx .note{margin:6px 0 0;color:var(--tblr-secondary);font-size:11.5px}
+.ctx li{margin:2px 0;line-height:1.45}
+.ctx .more{margin-top:6px}
+.ctx .more summary{cursor:pointer;color:var(--tblr-secondary);font-size:11.5px;
+  padding:4px 2px;list-style:none;user-select:none}
+.ctx .more summary::marker,.ctx .more summary::-webkit-details-marker{display:none}
+.ctx .more summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
+.ctx .more[open] summary::before{content:"▾ "}
+.ctx .more summary:hover{color:var(--tblr-primary)}
+.ctx .more p{margin:4px 0 6px;color:var(--tblr-secondary);line-height:1.5}
+.ctx .note{color:var(--tblr-secondary);font-size:11.5px}
+/* Служебные поля вводного — под раскрытием: при беглом просмотре они только мешают */
+.qmeta{margin-top:4px}
+.qmeta summary{cursor:pointer;color:var(--tblr-secondary);font-size:11px;padding:2px 0;
+  list-style:none;user-select:none}
+.qmeta summary::marker,.qmeta summary::-webkit-details-marker{display:none}
+.qmeta summary::before{content:"▸ "}
+.qmeta[open] summary::before{content:"▾ "}
+.qmeta summary:hover{color:var(--tblr-primary)}
+/* Решение проверяющего — главное действие на карточке, его видно сразу */
+.verdict{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;padding-top:8px;
+  border-top:1px dashed var(--tblr-border-color)}
+.verdict label{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;margin:0}
 tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size:11.5px;font-weight:600;
   padding:5px 10px;border-top:2px solid var(--tblr-border-color)}
 .rng{display:block;font-size:10.5px;color:var(--tblr-secondary);font-weight:400}
@@ -197,13 +220,20 @@ def context_block(deal: dict, active: str) -> str:
     note = (deal.get("notes") or {}).get(active)
     if not (ctx or qs or note):
         return ""
+    # Сверху — только то, что требуется от проверяющего: страница должна начинаться
+    # с действия, а не со стены текста. Описание проекта и примечания убраны под раскрытие.
     parts = []
-    if ctx:
-        parts.append(f"<p>{esc(ctx)}</p>")
     if qs:
-        parts.append("<b>Что проверяем</b><ul>" + "".join(f"<li>{esc(q)}</li>" for q in qs) + "</ul>")
+        parts.append('<div class="ask"><b>Что от вас нужно</b><ul>'
+                     + "".join(f"<li>{esc(q)}</li>" for q in qs) + "</ul></div>")
+    more = []
+    if ctx:
+        more.append(f"<p>{esc(ctx)}</p>")
     if note:
-        parts.append(f'<p class="note">{esc(note)}</p>')
+        more.append(f'<p class="note">{esc(note)}</p>')
+    if more:
+        parts.append('<details class="more"><summary>О проекте и деталях этой страницы</summary>'
+                     + "".join(more) + "</details>")
     return f'<div class="ctx">{"".join(parts)}</div>'
 
 
@@ -419,9 +449,14 @@ if(uTok)fetch('/api/u/'+uTok).then(r=>r.ok?r.json():null).then(d=>{
 // подсказки
 const tipsBtn=document.getElementById('tips-btn'),tips=document.getElementById('tips');
 if(tipsBtn&&tips){
-  let seen=false;try{seen=!!localStorage.getItem('tips_seen');}catch(e){}
-  tips.hidden=seen;
-  tipsBtn.onclick=()=>{tips.hidden=!tips.hidden;try{localStorage.setItem('tips_seen','1');}catch(e){}};
+  // Свёрнута по умолчанию: главное («Что от вас нужно») и так наверху страницы,
+  // а механика сохранения нужна по запросу и раньше занимала первый экран.
+  let open=false;try{open=localStorage.getItem('tips_open')==='1';}catch(e){}
+  tips.hidden=!open;
+  tipsBtn.onclick=()=>{
+    tips.hidden=!tips.hidden;
+    try{localStorage.setItem('tips_open',tips.hidden?'0':'1');}catch(e){}
+  };
 }
 // загрузка слоёв
 (async()=>{

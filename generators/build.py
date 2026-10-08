@@ -118,6 +118,10 @@ def build_all() -> list[str]:
         pkg_spec = {}
         if (deal_dir / "package.yaml").exists():
             pkg_spec = yaml.safe_load((deal_dir / "package.yaml").read_text()) or {}
+        # Исходное задание заказчика. Сами файлы в публичный репозиторий НЕ попадают
+        # (.gitignore) — в deal.yaml лежат только имена, их пишет from_lead.
+        # Файлы уходят на портал защищённым каналом и отдаются по гейту.
+        pkg_spec["tz_files"] = list(deal.get("tz_files") or [])
         (out / "package.html").write_text(overview_page.render(deal, pkg_spec))
         built.append(f"{deal['slug']}/package.html")
     (BUILD / "index.html").write_text(_index(deals))

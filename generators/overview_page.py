@@ -27,6 +27,23 @@ def render(deal: dict, spec: dict) -> str:
       <span class="st">—</span>
     </div>""" for p, label in PAGES if p in pages)
 
+    tz_files = spec.get("tz_files") or []
+    if tz_files:
+        links = "".join(
+            f'<a class="btn btn-sm btn-outline-primary" '
+            f'href="/d/{esc(deal["slug"])}/tz/{esc(name)}" target="_blank" rel="noopener">'
+            f'{esc(name)}</a>' for name in tz_files)
+        tz_block = f"""
+  <div class="card mt-2"><div class="card-body py-3">
+    <h3 style="font-size:13px;margin:0 0 4px">Исходное задание заказчика</h3>
+    <p class="text-secondary" style="font-size:12px;margin:0 0 8px">То, от чего мы отталкивались.
+      Полезно открыть, если показалось, что мы что-то поняли не так. Файл открывается по вашей
+      персональной ссылке; если доступа нет — попросите его у ответственного за проект.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">{links}</div>
+  </div></div>"""
+    else:
+        tz_block = ""
+
     gate_note = spec.get("gate_note") or (
         "Примите пакет, когда вводные, процесс, решение, работы и состав вас устраивают. "
         "После этого собирается ТКП и возвращается сюда на последний просмотр.")
@@ -36,6 +53,7 @@ def render(deal: dict, spec: dict) -> str:
   в любом порядке, но начинать стоит с «Вводных» — если предположение неверно, дальше неверно всё.
   Правки в каждом разделе ложатся отдельным слоем, наша версия не затирается.</p>
   <div class="card"><div class="card-body py-2">{rows}</div></div>
+  {tz_block}
   <div class="card mt-2"><div class="card-body py-3">
     <h3 style="font-size:13px;margin:0 0 6px">Согласования по ролям</h3>
     <p class="text-secondary" style="font-size:12px;margin:0 0 8px">Каждый согласует свою часть

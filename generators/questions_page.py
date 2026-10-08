@@ -35,11 +35,18 @@ def render(deal: dict, spec: dict) -> str:
         r_label, r_cls = RISK.get(q.get("risk", "mid"), ("", ""))
         qid = esc(q["id"])
         answer = q.get("answer") or q.get("ask_text") or "—"
+        # Видно сразу — только сам ответ или предположение. Служебные поля (откуда взято,
+        # на что влияет) прячем: они нужны при споре, а не при беглом просмотре.
+        details = "".join(filter(None, [
+            _meta("Нужно", q.get("need", "")),
+            _meta("Источник", q.get("source", "")),
+            _meta("Основание предположения", q.get("basis", "")),
+            _meta("Влияет на", q.get("impact", "")),
+        ]))
         body = [f'<p class="ans">{esc(answer)}</p>']
-        body.append(_meta("Нужно", q.get("need", "")))
-        body.append(_meta("Источник", q.get("source", "")))
-        body.append(_meta("Основание предположения", q.get("basis", "")))
-        body.append(_meta("Влияет на", q.get("impact", "")))
+        if details:
+            body.append(f'<details class="qmeta"><summary>откуда это и на что влияет</summary>'
+                        f'{details}</details>')
         rows.append(f"""
     <div class="qrow">
       <div class="qhead">
@@ -76,10 +83,6 @@ def render(deal: dict, spec: dict) -> str:
                 f'<b>{esc(ids)}</b>. До ответа заказчика всё ниже — рабочая гипотеза.</div>')
 
     body = f"""
-  <p class="hint">Вводные, от которых зависит решение. <b>Ответ есть</b> — взято из материалов заказчика,
-  источник указан. <b>Предположение</b> — ответа нет, работаем на основании и пишем это в ТКП оговоркой.
-  <b>Спросить</b> — предполагать дорого, вопрос уходит заказчику. Оспорьте любое вводное: ошибка здесь
-  дешевле всего исправляется.</p>
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
     <span class="badge bg-green-lt">ответ есть: {counts["answered"]}</span>
     <span class="badge bg-yellow-lt">предположений: {counts["assumed"]}</span>
@@ -91,6 +94,9 @@ def render(deal: dict, spec: dict) -> str:
       <li>По каждому вводному отметьте <b>согласен / спорно / неверно</b> и, если не согласны, напишите как правильно (можно надиктовать).</li>
       <li>Особое внимание — жёлтым: это то, что мы <b>предположили</b>. Если предположение неверно, дальше неверно всё.</li>
       <li>«Сохранить» фиксирует вашу версию, наша не затирается. Закончили — «Проверка завершена».</li>
+      <li>Что значат пометки: <b>ответ есть</b> — взято из материалов заказчика, источник указан;
+        <b>предположение</b> — ответа нет, работаем на основании и пишем это в ТКП оговоркой;
+        <b>спросить</b> — предполагать дорого, вопрос уходит заказчику.</li>
     </ul>
   </div>
   {warn}
