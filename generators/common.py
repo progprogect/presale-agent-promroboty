@@ -138,8 +138,8 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .lane-name.client{box-shadow:inset 3px 0 0 var(--tblr-orange),3px 0 6px -4px rgba(0,0,0,.18)}
 .lane-name.human{box-shadow:inset 3px 0 0 var(--tblr-secondary),3px 0 6px -4px rgba(0,0,0,.18)}
 /* полоса дорожки: ячейки одной строки образуют сплошную ленту */
-.lane-cell{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;
-  min-width:0;padding:10px 7px;border-bottom:1px solid var(--tblr-border-color)}
+.lane-cell{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;
+  min-width:0;padding:14px 13px;border-bottom:1px solid var(--tblr-border-color)}
 .lane-name{border-bottom:1px solid var(--tblr-border-color)}
 .lanes .lane-row-alt{background:var(--tblr-bg-surface-secondary);opacity:.35}
 .pstep{border:1px solid var(--tblr-border-color);border-radius:6px;padding:7px 9px;font-size:11.5px;
@@ -155,6 +155,16 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .pstep.ours{border-color:var(--tblr-primary)}
 .pstep.client{border-color:var(--tblr-orange);background:var(--tblr-orange-lt)}
 .pstep.client .tm{background:var(--tblr-orange);color:#fff}
+/* Слой стрелок потока: лежит под карточками, кликам не мешает */
+.lanes{position:relative}
+.flowlayer{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0;
+  color:var(--tblr-primary)}
+.lane-cell,.lane-name{position:relative;z-index:1}
+.flowlayer .fl{fill:none;stroke:var(--tblr-primary);stroke-width:1.8;opacity:.9;
+  stroke-linejoin:round;stroke-linecap:round}
+.flowlayer .fl.par{stroke-dasharray:3 4;opacity:.55}
+.flowlayer .fllab{font-size:10.5px;fill:var(--tblr-secondary);text-anchor:middle;
+  paint-order:stroke;stroke:var(--tblr-bg-surface);stroke-width:3px}
 .cyc{font-size:11.5px;color:var(--tblr-secondary);margin:6px 0 0;padding-left:2px}
 .keyfig{font-size:12.5px;font-weight:600;margin:8px 0 0}
 
