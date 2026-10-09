@@ -191,10 +191,22 @@ def deal_img(request: Request, slug: str, name: str, u: str | None = None) -> Fi
 
 
 @app.get("/d/{slug}/proposal/{name}")
-def deal_proposal_file(slug: str, name: str, u: str | None = None) -> FileResponse:
-    if DB_URL and not _kp_allowed(slug, u):
-        raise HTTPException(403, "доступ к ТКП выдаётся отдельно")
-    return _deal_file(slug, "proposal", name)
+def deal_proposal_file(request: Request, slug: str, name: str, u: str | None = None):
+    """Собранное ТКП. В нём есть имя конечного заказчика, поэтому путь тот же, что у задания:
+    файл в публичном репозитории НЕ лежит, приходит защищённым каналом выгрузки
+    (tools/push_pipeline.py -> cardkp/<слаг>/<файл>) и отдаётся только по персональной ссылке
+    назначенного с доступом к ТКП либо после входа в админку."""
+    if not _kp_allowed(slug, u):
+        _admin_auth(request)
+    if "/" in slug or ".." in slug or "/" in name or ".." in name:
+        raise HTTPException(404)
+    got = _pipeline_get(f"cardkp/{slug}/{name}")
+    if got:
+        data, ct = got
+        return Response(content=data, media_type=ct,
+                        headers={"Content-Disposition": f'inline; filename="{quote(name)}"',
+                                 "Cache-Control": "no-store"})
+    return _deal_file(slug, "proposal", name)   # запасной путь: режим разработки
 
 
 @app.get("/d/{slug}/tz/{name}")
