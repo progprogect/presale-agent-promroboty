@@ -1,7 +1,7 @@
 """Чек-скрипт портала: заказчик не назван, внутренние деньги не утекли.
 
 Запуск:
-  python -m generators.check_confidential <rules.yaml> [--live https://project.promroboty.by]
+  python -m generators.check_confidential <rules.yaml> [--live <адрес> [--auth логин:пароль]]
 
 rules.yaml — тот же файл правил, что у from_lead.py (лежит в папке сделки, в репозитории его нет):
 берёт slug и список forbid (имена заказчика и чужих сделок). Проверяет собранные страницы build/<slug>/
@@ -11,9 +11,11 @@ rules.yaml — тот же файл правил, что у from_lead.py (леж
 любые крупные числа (≥100 000), которых нет среди цен закупки BOM сделки (суммы вилок и итога — допустимы).
 Код возврата 1, если что-то найдено.
 """
+import base64
 import json
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -66,8 +68,13 @@ def scan(name: str, text: str, forbid: list[str], allowed: set[int]) -> list[str
     return problems
 
 
-def fetch(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "curl/8.4.0"})  # python-urllib режет защита Railway
+def fetch(url: str, auth: str = "") -> str:
+    """Страница портала. Карточки закрыты входом, поэтому в --live нужны логин и пароль
+    админки: без них страница вернёт 401, и проверка молча ничего не увидит."""
+    hdr = {"User-Agent": "curl/8.4.0"}   # python-urllib режет защита Railway
+    if auth:
+        hdr["Authorization"] = "Basic " + base64.b64encode(auth.encode()).decode()
+    req = urllib.request.Request(url, headers=hdr)
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read().decode("utf-8")
 
@@ -88,8 +95,14 @@ def main() -> None:
     texts["build/index.html"] = (BASE / "build" / "index.html").read_text(encoding="utf-8")
     if "--live" in sys.argv:
         host = sys.argv[sys.argv.index("--live") + 1].rstrip("/")
+        auth = sys.argv[sys.argv.index("--auth") + 1] if "--auth" in sys.argv else ""
         for path in [f"/d/{slug}/{p}" for p in built] + ["/api/deals", "/"]:
-            texts[host + path] = fetch(host + path)
+            try:
+                texts[host + path] = fetch(host + path, auth)
+            except urllib.error.HTTPError as ex:
+                # молча пропустить нельзя: проверка решит, что всё чисто, просто ничего не увидев
+                sys.exit(f"живая страница {path} не прочитана: HTTP {ex.code}. "
+                         f"Карточки закрыты входом — добавьте --auth логин:пароль")
     problems = []
     for name, text in texts.items():
         problems += scan(name, text, forbid, allowed)
