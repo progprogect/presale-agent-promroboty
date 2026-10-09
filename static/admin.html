@@ -52,6 +52,25 @@ td,th{padding:6px 8px;vertical-align:middle}
 .map .warn{border-left:3px solid var(--tblr-orange);background:var(--tblr-orange-lt);
   padding:8px 12px;border-radius:6px;font-size:12.5px;margin-top:12px}
 .map code{font-size:11.5px;background:var(--tblr-bg-surface-secondary);padding:1px 5px;border-radius:4px}
+/* Справка по ролям — рядом с выбором роли, где и принимается решение */
+.roles{margin:0 0 14px}
+.roles summary{cursor:pointer;font-size:13px;font-weight:600;list-style:none;user-select:none;
+  padding:2px 0;display:flex;align-items:center;gap:8px;color:var(--tblr-primary)}
+.roles summary::marker,.roles summary::-webkit-details-marker{display:none}
+.roles summary::before{content:"▸";font-weight:400}
+.roles[open] summary::before{content:"▾"}
+.roles summary .m-hint{font-size:12px;font-weight:400;color:var(--tblr-secondary)}
+.roles .rt{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.roles .rt th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary);font-weight:600;padding:4px 10px 4px 0;
+  border-bottom:1px solid var(--tblr-border-color)}
+.roles .rt td{padding:7px 10px 7px 0;border-bottom:1px solid var(--tblr-border-color);
+  vertical-align:top;line-height:1.45}
+.roles .rt tr.key td{background:var(--tblr-primary-lt)}
+.roles .rt tr.dim td{color:var(--tblr-secondary)}
+.roles .rnote{font-size:12.5px;margin:8px 0;line-height:1.5}
+.roles .dimtxt{color:var(--tblr-secondary);font-size:11.5px;border-left:3px solid var(--tblr-border-color);
+  padding-left:10px}
 </style></head>
 <body><div class="wrap">
   <div class="pagehead">
@@ -153,6 +172,47 @@ td,th{padding:6px 8px;vertical-align:middle}
 
   <div class="card"><div class="card-body">
     <h3>Назначить на проект</h3>
+    <details class="roles">
+      <summary>Чем отличаются роли <span class="m-hint">— и что роль на самом деле решает</span></summary>
+
+      <p class="rnote"><b>Роль НЕ определяет, какие разделы человек увидит.</b> Разделы вы задаёте
+        галочками ниже, отдельно для каждого назначения. Доступ к ТКП и исходному заданию заказчика —
+        тоже галочка, а не роль. Роль решает только одно: <b>что человек согласует</b>.</p>
+
+      <table class="rt">
+        <tr><th style="width:190px">Роль</th><th style="width:230px">Что согласует</th><th>Зачем она в проекте</th></tr>
+        <tr class="key">
+          <td><b>Delivery-менеджер</b></td>
+          <td><b>гейт вводных</b> + <b>приёмка пакета целиком</b></td>
+          <td>Ключевая роль. Только он закрывает гейт вводных, и только его согласование означает,
+            что пакет принят — после этого собирается ТКП. Без delivery-менеджера проект не сдвинется
+            дальше проверок, сколько бы людей вы ни назначили.</td>
+        </tr>
+        <tr><td>Технолог</td><td>свою часть пакета</td>
+          <td>Компоновка ячейки целиком и всё вокруг неё: последовательность операций, досягаемость,
+            такт, граница поставки.</td></tr>
+        <tr><td>Электрик</td><td>свою часть пакета</td>
+          <td>Электрика и электросеть: шкафы, подключения, контур безопасности, нагрузки.</td></tr>
+        <tr><td>Подрядчик по роботам</td><td>свою часть пакета</td>
+          <td>Конструкторская документация и установка робота: выбор модели, оснастка, монтаж.</td></tr>
+        <tr><td>Специалист по ПО</td><td>свою часть пакета</td>
+          <td>Программная часть: логика, зрение, интеграция с системами завода.</td></tr>
+        <tr class="dim"><td><b>Наблюдатель</b></td><td><b>ничего</b></td>
+          <td>Только смотрит. Согласовать не может — система откажет. И он <b>не считается
+            проверяющим</b>: если на проекте одни наблюдатели, в пайплайне будет висеть
+            «назначить проверяющих».</td></tr>
+      </table>
+
+      <p class="rnote"><b>Как это выглядит в работе.</b> Каждый назначенный проходит свои разделы,
+        отмечает по пунктам «согласен / спорно / неверно», правит часы и состав, пишет замечания —
+        и в конце жмёт «Проверка завершена». Его правки ложатся отдельным слоем, наша версия не
+        затирается, и проверяющие не затирают друг друга. Когда все прошли, delivery-менеджер
+        принимает пакет на вкладке «Обзор».</p>
+
+      <p class="rnote dimtxt">Технически правки может сохранить любой, у кого есть ссылка на раздел —
+        вход для этого не требуется. Роль ограничивает согласования, а не чтение и комментирование.
+        Если проект уходит в чужую организацию, учитывайте, что ссылка расходится дальше без контроля.</p>
+    </details>
     <div class="formrow">
       <div><label>Человек</label><select id="as-person" class="form-select form-select-sm"></select></div>
       <div><label>Проект</label><select id="as-slug" class="form-select form-select-sm"></select></div>
