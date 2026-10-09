@@ -5,6 +5,13 @@
 
 Поля вопроса: id, topic, q, status (answered|assumed|ask), risk (high|mid|low), impact.
 Необязательные: need, answer, source (для answered), basis (для assumed), ask_text (для ask).
+
+Контекст для проверяющего (добавлено 09.10.2026) — чтобы человек понимал, КАК отвечать:
+  why     — почему вопрос вообще возник, одной фразой («чертежей нет, а от толщины зависят режимы»)
+  options — варианты решения [{label, note}]: label короткий, note — последствие выбора.
+            Если варианты заданы, проверяющий выбирает из них, а не отвечает «согласен/спорно».
+  auto    — true, если решение приняли сами и дёргать проверяющего незачем. Такие вводные
+            уходят вниз в свёрнутый блок, чтобы на виду осталось только то, где нужен человек.
 """
 from .common import APPROVE_JS, ICON_COMMENT, ICON_MIC, REVIEW_JS, esc, savebar, shell
 
@@ -24,12 +31,44 @@ def _meta(label: str, value: str) -> str:
     return f'<p class="meta"><b>{label}:</b> {esc(value)}</p>' if value else ""
 
 
+def _verdict(q: dict, qid: str) -> str:
+    """Блок решения. Если у вводного заданы варианты — выбираем из них: это конкретнее,
+    чем «согласен / спорно», и сразу говорит, какие вообще развилки есть."""
+    opts = q.get("options") or []
+    if opts:
+        items = []
+        for o in opts:
+            lab = str(o.get("label", "")).strip()
+            note = str(o.get("note", "")).strip()
+            if not lab:
+                continue
+            val = lab[:70]
+            items.append(
+                f'<label class="opt"><input type="radio" class="form-check-input" name="v-{qid}" '
+                f'data-fkey="{qid}" value="{esc(val)}">'
+                f'<span><b>{esc(lab)}</b>'
+                + (f'<small>{esc(note)}</small>' if note else "") + "</span></label>")
+        items.append(
+            f'<label class="opt other"><input type="radio" class="form-check-input" name="v-{qid}" '
+            f'data-fkey="{qid}" value="иначе"><span><b>иначе — напишу свой</b></span></label>')
+        return f'<div class="verdict opts"><span class="vlab">Что выбираем</span>{"".join(items)}</div>'
+    return f"""<div class="verdict">
+        <span class="vlab">Ваш ответ</span>
+        <label><input type="radio" class="form-check-input" name="v-{qid}"
+          data-fkey="{qid}" value="ok"> согласен</label>
+        <label><input type="radio" class="form-check-input" name="v-{qid}"
+          data-fkey="{qid}" value="doubt"> спорно</label>
+        <label><input type="radio" class="form-check-input" name="v-{qid}"
+          data-fkey="{qid}" value="wrong"> неверно, так нельзя</label>
+      </div>"""
+
+
 def render(deal: dict, spec: dict) -> str:
     qs = spec["questions"]
     counts = {k: sum(1 for q in qs if q["status"] == k) for k in STATUS}
     blocking = [q for q in qs if q["status"] == "ask" and q.get("risk") == "high"]
 
-    rows = []
+    rows, auto_rows = [], []
     for q in qs:
         s_label, s_cls = STATUS[q["status"]]
         r_label, r_cls = RISK.get(q.get("risk", "mid"), ("", ""))
@@ -43,11 +82,19 @@ def render(deal: dict, spec: dict) -> str:
             _meta("Основание предположения", q.get("basis", "")),
             _meta("Влияет на", q.get("impact", "")),
         ]))
-        body = [f'<p class="ans">{esc(answer)}</p>']
+        # Контекст наверху: почему это вообще вопрос. Без него проверяющий видит
+        # утверждение и не понимает, на основании чего ему соглашаться или спорить.
+        body = []
+        if q.get("why"):
+            body.append(f'<p class="qwhy"><b>почему спросили</b> {esc(q["why"])}</p>')
+        body.append(f'<p class="ans">{esc(answer)}</p>')
+        if q.get("impact"):
+            body.append(f'<p class="qrisk"><b>если ошибёмся</b> {esc(q["impact"])}</p>')
         if details:
             body.append(f'<details class="qmeta"><summary>откуда это и на что влияет</summary>'
                         f'{details}</details>')
-        rows.append(f"""
+        verdict = _verdict(q, qid)
+        (auto_rows if q.get("auto") else rows).append(f"""
     <div class="qrow">
       <div class="qhead">
         <span class="qid">{qid}</span>
@@ -60,14 +107,7 @@ def render(deal: dict, spec: dict) -> str:
         </span>
       </div>
       <div class="qbody">{"".join(body)}</div>
-      <div class="verdict">
-        <label><input type="radio" class="form-check-input" name="v-{qid}"
-          data-fkey="{qid}" value="ok"> согласен</label>
-        <label><input type="radio" class="form-check-input" name="v-{qid}"
-          data-fkey="{qid}" value="doubt"> спорно</label>
-        <label><input type="radio" class="form-check-input" name="v-{qid}"
-          data-fkey="{qid}" value="wrong"> неверно, так нельзя</label>
-      </div>
+      {verdict}
       <div class="crow" id="crow-{qid}" hidden><div class="cbox">
         <textarea class="form-control" data-ckey="{qid}"
           placeholder="Что не так с вводным {qid} и как правильно…"></textarea>
@@ -81,6 +121,17 @@ def render(deal: dict, spec: dict) -> str:
         warn = (f'<div class="alert alert-warning py-2" style="font-size:12.5px">Компоновка не '
                 f'считается подтверждённой, пока не закрыты вводные с высокой ценой ошибки: '
                 f'<b>{esc(ids)}</b>. До ответа заказчика всё ниже — рабочая гипотеза.</div>')
+
+    # Вводные, которые мы закрыли сами и где человек не нужен, убираем вниз под раскрытие:
+    # иначе они разбавляют список и проверяющий тратит внимание не на то.
+    auto_block = ""
+    if auto_rows:
+        auto_block = (
+            f'<details class="autoq"><summary>Решили сами — {len(auto_rows)} '
+            f'{"вводное" if len(auto_rows) == 1 else "вводных"}: типовые вещи, где ваш ответ '
+            f'ничего не меняет. Откройте, если хотите проверить и их</summary>'
+            f'<div class="card mt-2"><div class="card-body py-2">{"".join(auto_rows)}</div></div>'
+            f'</details>')
 
     body = f"""
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
@@ -101,6 +152,7 @@ def render(deal: dict, spec: dict) -> str:
   </div>
   {warn}
   <div class="card"><div class="card-body py-2">{"".join(rows)}</div></div>
+  {auto_block}
   <div class="gate">
     <h3>Гейт вводных</h3>
     <p id="qgate-st" class="text-secondary" style="font-size:12.5px">…</p>

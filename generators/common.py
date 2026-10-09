@@ -97,6 +97,36 @@ tr.stageio td{background:var(--tblr-bg-surface-tertiary);padding:10px 12px}
 .qmeta summary::before{content:"▸ "}
 .qmeta[open] summary::before{content:"▾ "}
 .qmeta summary:hover{color:var(--tblr-primary)}
+/* Контекст вводного: почему спросили и чем грозит ошибка — видно сразу, не под раскрытием */
+.qwhy,.qrisk{font-size:11.5px;line-height:1.45;margin:0 0 5px;color:var(--tblr-secondary);
+  padding-left:9px;border-left:2px solid var(--tblr-border-color)}
+.qwhy b,.qrisk b{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary);margin-right:5px;font-weight:700}
+.qrisk{margin:5px 0 0;border-left-color:var(--tblr-orange)}
+.qrisk b{color:var(--tblr-orange)}
+.verdict .vlab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--tblr-secondary);font-weight:700;align-self:center;margin-right:2px}
+/* Варианты решения: выбор конкретного пути вместо «согласен / спорно» */
+.verdict.opts{flex-direction:column;align-items:stretch;gap:6px}
+.verdict.opts .vlab{margin-bottom:2px}
+.verdict .opt{display:flex;align-items:flex-start;gap:7px;padding:6px 9px;border-radius:6px;
+  border:1px solid var(--tblr-border-color);background:var(--tblr-bg-surface);cursor:pointer;margin:0}
+.verdict .opt:hover{border-color:var(--tblr-primary)}
+.verdict .opt input{margin-top:2px;flex-shrink:0}
+.verdict .opt b{font-weight:600;font-size:12.5px;display:block}
+.verdict .opt small{display:block;color:var(--tblr-secondary);font-size:11px;line-height:1.4;
+  margin-top:1px}
+.verdict .opt.other{border-style:dashed}
+.verdict .opt.other b{font-weight:400;color:var(--tblr-secondary)}
+/* Вводные, решённые нами: убраны вниз, чтобы не разбавляли список */
+.autoq{margin-top:10px}
+.autoq summary{cursor:pointer;font-size:11.5px;color:var(--tblr-secondary);padding:6px 2px;
+  list-style:none;user-select:none}
+.autoq summary::marker,.autoq summary::-webkit-details-marker{display:none}
+.autoq summary::before{content:"▸ "}
+.autoq[open] summary::before{content:"▾ "}
+.autoq summary:hover{color:var(--tblr-primary)}
+.autoq .qrow{opacity:.75}
 /* Решение проверяющего — главное действие на карточке, его видно сразу */
 .verdict{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;padding-top:8px;
   border-top:1px dashed var(--tblr-border-color)}
