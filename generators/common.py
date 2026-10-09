@@ -175,7 +175,9 @@ tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size
 .lane-name.client{box-shadow:inset 3px 0 0 var(--tblr-orange),3px 0 6px -4px rgba(0,0,0,.18)}
 .lane-name.human{box-shadow:inset 3px 0 0 var(--tblr-secondary),3px 0 6px -4px rgba(0,0,0,.18)}
 /* полоса дорожки: ячейки одной строки образуют сплошную ленту */
-.lane-cell{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;
+/* gap между карточками одной ячейки — не косметика: в него проходит стрелка «одновременно».
+   При 10 px маршрут не помещался и уходил в обход сбоку, читаясь как ошибка вёрстки. */
+.lane-cell{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:26px;
   min-width:0;padding:14px 13px;border-bottom:1px solid var(--tblr-border-color)}
 .lane-name{border-bottom:1px solid var(--tblr-border-color)}
 .lanes .lane-row-alt{background:var(--tblr-bg-surface-secondary);opacity:.35}

@@ -136,6 +136,11 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]
     items = _load(_p(base, rules["bom"]))["items"]
     weeks = {}
     code2row = {}  # внутренний код строки (A1…) -> номер строки на портале (1-based)
+    # Код строки может стоять прямо в выгрузке (поле id) — тогда отдельный bom_source
+    # не нужен. Наружу id не идёт: строки портала собираются из перечисленных полей.
+    for idx, it in enumerate(items):
+        if it.get("id"):
+            code2row[str(it["id"])] = idx + 1
     if rules.get("bom_source"):
         src = _load(_p(base, rules["bom_source"]))
         var = [v for v in src["variants"] if v["id"] == rules.get("bom_variant", "V2")][0]
@@ -246,8 +251,13 @@ def convert_pass(rules: dict, base: Path, cl: Cleaner, code2row: dict | None = N
                 if rows:
                     p["rows"] = rows
                 missed += [c for c in codes if c not in (code2row or {})]
+            # Без rows схема перестаёт быть навигацией: клик по узлу никуда не ведёт,
+            # а в строках состава нет номера позиции. Это не предупреждение, это стоп:
+            # раньше такая карточка молча уезжала на портал неполной.
             if missed:
-                print(f"  ! схема: кодов без строки BOM на портале: {sorted(set(missed))}")
+                sys.exit(f"схема: у кодов {sorted(set(missed))} нет строки состава. "
+                         "Дайте строкам bom_portal поле id с этими кодами (или укажите "
+                         "bom_source с ними) — иначе клик по схеме не приведёт к позиции")
         n = next((len(spec[k]) for k in ("questions", "steps", "nodes", "sections") if k in spec), 0)
         done.append((page, cl.walk(spec), n))
     return done

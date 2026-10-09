@@ -50,8 +50,17 @@
   const dSeg = (s, R) => { let m = 1e9; const [a, b] = s, N = 24;
     for (let k = 0; k <= N; k++) m = Math.min(m, dRect(a[0]+(b[0]-a[0])*k/N, a[1]+(b[1]-a[1])*k/N, R));
     return m; };
+  // Своя карточка — та, к которой стрелка подключена: к ней она и должна подходить
+  // вплотную (END), мимо чужих обязана держать GAP. Поэтому меряем раздельно.
+  const own = new Map();
+  paths.forEach((p, i) => { const sg = segs(p.getAttribute('d') || ''); if (!sg.length) return;
+    const set = new Set();
+    [sg[0][0], sg[sg.length-1][1]].forEach(pt => rects.forEach(R =>
+      { if (dRect(pt[0], pt[1], R) < 7) set.add(R); }));
+    own.set(i, set); });
   let minGap = 1e9; const tight = [];
-  all.forEach(({ i, s }) => rects.forEach(R => { const dd = dSeg(s, R);
+  all.forEach(({ i, s }) => rects.forEach(R => { if ((own.get(i) || new Set()).has(R)) return;
+    const dd = dSeg(s, R);
     if (dd < minGap) minGap = dd;
     if (dd < 9 && tight.length < 6) tight.push({ arrow: i, card: R.id, dist: +dd.toFixed(1) }); }));
   let minEnd = 1e9;
@@ -66,5 +75,6 @@
   return { page: location.pathname, arrows: paths.length - 1, crossings: n, onTopOfEachOther: onTop,
     cards: cards.length, throughCards: thru, thruEx, cardOverlaps: cardOvl, cardEx,
     labels: txt.length, labelOverlaps: ovl, turns, length: Math.round(len),
+    minGapToCard: +minGap.toFixed(1), minGapAtEnds: +minEnd.toFixed(1), tight,
     pageHScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth };
 })()

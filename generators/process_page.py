@@ -33,15 +33,20 @@ FLOW_JS = r"""
   // ни боком по дороге. Поэтому вокруг каждой карточки на расстоянии GAP проложены
   // «обводные» коридоры, точки подключения стоят на них, а сами грани карточек
   // коридорами больше не являются — ехать по грани нельзя в принципе.
+  // Зазор по дороге (GAP) и зазор на конце (END) — разные вещи: мимо чужой карточки
+  // надо проходить широко, а в свою стрелка должна упираться, иначе она целится мимо.
   const T={
     GAP:11,     // зазор от карточки: ближе этого не проходит ни одна линия
+    END:5,      // зазор в точке подключения: стрелка доводится до карточки, но не касается
+    NEAR:7,     // ближе этого параллельные стрелки сливаются в одну линию
+    NEARPEN:0,  // штраф за это соседство (0 — выключено, см. docs/README-checks.md)
     TURN:60,    // штраф за поворот: прямая читается лучше ломаной
     BUSY:400,   // штраф за коридор, где уже лежит другая стрелка — чтобы расходились
     CROSS:420,  // штраф за пересечение чужой стрелки поперёк
   };
-  let GAP,TURN,BUSY,CROSS;
+  let GAP,END,NEAR,NEARPEN,TURN,BUSY,CROSS;
   function tune(){ const t=Object.assign({},T,window.FLOW_TUNE||{});
-    GAP=t.GAP;TURN=t.TURN;BUSY=t.BUSY;CROSS=t.CROSS; }
+    GAP=t.GAP;END=t.END;NEAR=t.NEAR;NEARPEN=t.NEARPEN;TURN=t.TURN;BUSY=t.BUSY;CROSS=t.CROSS; }
   tune();
 
   // Карточки — препятствия. Коридоры ищем в щелях между ними: по построению
@@ -104,7 +109,7 @@ FLOW_JS = r"""
         link(id(i,j+1),id(i,j),L,'v',k,xs[i],ys[j],xs[i],ys[j+1]);
       }
     }
-    return {xs:xs,ys:ys,xi:xi,yi:yi,id:id,adj:adj,free:free,segOf:segOf};
+    return {xs:xs,ys:ys,xi:xi,yi:yi,id:id,adj:adj,free:free,segOf:segOf,rects:rects};
   }
 
   // Порты — точки подключения, вынесенные от граней на GAP: линия начинается и
@@ -119,13 +124,22 @@ FLOW_JS = r"""
   }
 
   // Пересечение считаем честно: вертикаль одной стрелки через горизонталь другой —
-  // разные рёбра сетки, пометкой «занято» их не поймать.
+  // разные рёбра сетки, пометкой «занято» их не поймать. Соседние коридоры в узкой щели
+  // стоят в 2–4 px друг от друга: формально это разные пути, а на экране — одна жирная
+  // линия, поэтому параллельная стрелка ближе NEAR штрафуется как занятый коридор.
   function penalties(g,busy,laid){
+    const olap=(a1,a2,b1,b2)=>Math.min(Math.max(a1,a2),Math.max(b1,b2))
+                             -Math.max(Math.min(a1,a2),Math.min(b1,b2));
     const pen=new Map();
     g.segOf.forEach((s,k)=>{
       let p=(busy.get(k)||0)*BUSY;
       for(const o of laid){
-        if(o.dir===s.dir)continue;
+        if(o.dir===s.dir){
+          const d=s.dir==='v'?Math.abs(s.x1-o.x1):Math.abs(s.y1-o.y1);
+          const ov=s.dir==='v'?olap(s.y1,s.y2,o.y1,o.y2):olap(s.x1,s.x2,o.x1,o.x2);
+          if(d<NEAR&&ov>10)p+=NEARPEN;
+          continue;
+        }
         const v=s.dir==='v'?s:o, h=s.dir==='v'?o:s;
         if(v.x1>Math.min(h.x1,h.x2)&&v.x1<Math.max(h.x1,h.x2)&&
            h.y1>Math.min(v.y1,v.y2)&&h.y1<Math.max(v.y1,v.y2)) p+=CROSS;
@@ -135,7 +149,60 @@ FLOW_JS = r"""
     return pen;
   }
 
+  // Прямая связь соседних карточек. Если грани смотрят друг на друга и между ними
+  // свободно — линия идёт напрямую, без сетки: маршрут по коридорам на такой щели давал
+  // излом на пустом месте и 4 px линии на 6,5 px наконечника.
+  const MINRUN=2*T.END+6;   // короче этого прямая не читается — тогда идём сеткой
+  function direct(g,a,b){
+    const ov=(l1,r1,l2,r2)=>Math.min(r1,r2)-Math.max(l1,l2);
+    const clear=(x1,y1,x2,y2)=>{ const c=GAP-1;
+      return !g.rects.some(r=>r!==a&&r!==b&&
+        Math.max(x1,x2)>r.l-c&&Math.min(x1,x2)<r.r+c&&
+        Math.max(y1,y2)>r.t-c&&Math.min(y1,y2)<r.b+c); };
+    const try_=(p,q)=>clear(p[0],p[1],q[0],q[1])?[p,q]:null;
+    if(ov(a.t,a.b,b.t,b.b)>24){
+      const y=Math.round((Math.max(a.t,b.t)+Math.min(a.b,b.b))/2);
+      if(b.l-a.r>=MINRUN)return try_([a.r+END,y],[b.l-END,y]);
+      if(a.l-b.r>=MINRUN)return try_([a.l-END,y],[b.r+END,y]);
+    }
+    if(ov(a.l,a.r,b.l,b.r)>24){
+      const x=Math.round((Math.max(a.l,b.l)+Math.min(a.r,b.r))/2);
+      if(b.t-a.b>=MINRUN)return try_([x,a.b+END],[x,b.t-END]);
+      if(a.t-b.b>=MINRUN)return try_([x,a.t-END],[x,b.b+END]);
+    }
+    return null;
+  }
+
+  // Концы маршрута по сетке стоят на обводном коридоре, в GAP от карточки, и крайний
+  // отрезок часто идёт ВДОЛЬ её грани — наконечник тогда смотрит мимо. Поэтому к пути
+  // достраивается короткий заход перпендикулярно грани, до END от неё.
+  function stub(pt,r){
+    const [x,y]=pt, d=GAP-END, inside=(v,lo,hi)=>v>lo&&v<hi;
+    if(Math.abs(y-(r.t-GAP))<1.5&&inside(x,r.l-GAP,r.r+GAP))return [x,y+d];
+    if(Math.abs(y-(r.b+GAP))<1.5&&inside(x,r.l-GAP,r.r+GAP))return [x,y-d];
+    if(Math.abs(x-(r.l-GAP))<1.5&&inside(y,r.t-GAP,r.b+GAP))return [x+d,y];
+    if(Math.abs(x-(r.r+GAP))<1.5&&inside(y,r.t-GAP,r.b+GAP))return [x-d,y];
+    return null;
+  }
+  // Заход не достраивается, если он налезет на уже проложенную стрелку: лучше
+  // короткий конец в GAP от карточки, чем лишнее пересечение.
+  function ends(pts,a,b,other){
+    const axis=(p,q)=>p[0]===q[0]?'v':'h';
+    const ok=(p,q)=>!other.some(o=>
+      Math.max(p[0],q[0])>=Math.min(o.x1,o.x2)&&Math.min(p[0],q[0])<=Math.max(o.x1,o.x2)&&
+      Math.max(p[1],q[1])>=Math.min(o.y1,o.y2)&&Math.min(p[1],q[1])<=Math.max(o.y1,o.y2));
+    const s=stub(pts[0],a);
+    if(s&&ok(s,pts[0])){ if(axis(pts[0],s)===axis(pts[0],pts[1]))pts[0]=s; else pts.unshift(s); }
+    const n=pts.length-1, e=stub(pts[n],b);
+    if(e&&ok(pts[n],e)){ if(axis(pts[n],e)===axis(pts[n-1],pts[n]))pts[n]=e; else pts.push(e); }
+    return pts;
+  }
+
   function route(g,a,b,busy,laid){
+    const before=laid.length;   // что было проложено до нас — мимо этого ведём концы
+    const d=direct(g,a,b);
+    if(d){ laid.push({x1:d[0][0],y1:d[0][1],x2:d[1][0],y2:d[1][1],
+                      dir:d[0][0]===d[1][0]?'v':'h'}); return d; }
     const A=ports(g,a), B=ports(g,b);
     if(!A.length||!B.length)return null;
     const pen=penalties(g,busy,laid);
@@ -181,7 +248,7 @@ FLOW_JS = r"""
       }
       laid.push({x1:x1,y1:y1,x2:x2,y2:y2,dir:x1===x2?'v':'h'});
     }
-    return simplify(pts);
+    return ends(simplify(pts),a,b,laid.slice(0,before));
   }
   // убираем промежуточные точки на одной прямой — путь из сетки идёт мелкими шагами
   function simplify(pts){
@@ -194,9 +261,6 @@ FLOW_JS = r"""
     out.push(pts[pts.length-1]);
     return out;
   }
-  // Наконечник стоит на конце пути, а путь кончается в GAP от карточки — укорачивать
-  // больше ничего не надо, иначе стрелка повиснет в пустоте.
-  function trim(pts){ return pts; }
   const dstr=pts=>'M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L');
 
   function draw(){
@@ -230,7 +294,7 @@ FLOW_JS = r"""
       const pts=route(g,a,b,busy,laid);
       if(!pts||pts.length<2)continue;
       const p=document.createElementNS(NS,'path');
-      p.setAttribute('d',dstr(trim(pts)));
+      p.setAttribute('d',dstr(pts));
       p.setAttribute('class','fl'+(f.kind==='par'?' par':''));
       p.setAttribute('marker-end','url(#ah)');
       svg.appendChild(p);
