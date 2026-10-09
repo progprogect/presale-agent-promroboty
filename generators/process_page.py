@@ -29,20 +29,19 @@ FLOW_JS = r"""
   const NS='http://www.w3.org/2000/svg';
   // Веса маршрутизации. Подобраны прогоном чек-скрипта (docs/check_flow.js) по всем
   // карточкам пайплайна; window.FLOW_TUNE позволяет подобрать заново без пересборки.
+  // ПРАВИЛО ЗАЗОРА. Линия не касается карточки нигде: ни началом, ни наконечником,
+  // ни боком по дороге. Поэтому вокруг каждой карточки на расстоянии GAP проложены
+  // «обводные» коридоры, точки подключения стоят на них, а сами грани карточек
+  // коридорами больше не являются — ехать по грани нельзя в принципе.
   const T={
-    TIP:8,      // на столько не доводим линию до карточки — там наконечник
+    GAP:11,     // зазор от карточки: ближе этого не проходит ни одна линия
     TURN:60,    // штраф за поворот: прямая читается лучше ломаной
     BUSY:400,   // штраф за коридор, где уже лежит другая стрелка — чтобы расходились
     CROSS:420,  // штраф за пересечение чужой стрелки поперёк
-    // Штраф за длинный участок вдоль границы карточки. Ноль намеренно: перебор по
-    // карточкам пайплайна показал, что любой заметный штраф выталкивает линию в дальние
-    // коридоры и добавляет пересечений — а пересечение читается хуже, чем линия у края.
-    HUG:0,
-    SHORT:34,   // короче этого — выход из карточки в коридор, по границе идти можно
   };
-  let TIP,TURN,BUSY,CROSS,HUG,SHORT;
+  let GAP,TURN,BUSY,CROSS;
   function tune(){ const t=Object.assign({},T,window.FLOW_TUNE||{});
-    TIP=t.TIP;TURN=t.TURN;BUSY=t.BUSY;CROSS=t.CROSS;HUG=t.HUG;SHORT=t.SHORT; }
+    GAP=t.GAP;TURN=t.TURN;BUSY=t.BUSY;CROSS=t.CROSS; }
   tune();
 
   // Карточки — препятствия. Коридоры ищем в щелях между ними: по построению
@@ -67,20 +66,24 @@ FLOW_JS = r"""
   function build(rects,W,H){
     // в сетку входят и линии самих карточек: на них лежат порты, иначе стрелке
     // неоткуда выйти и некуда прийти
-    // Настоящие коридоры — в щелях между карточками. Линии самих карточек нужны только
-    // для портов: по ним можно выйти наружу, но вести по ним трассу нельзя — линия
-    // пойдёт вплотную к карточкам и будет выглядеть налипшей.
+    // Коридоры: в щелях между карточками плюс «обводка» каждой карточки на расстоянии
+    // GAP от её граней — именно к обводке подключаются стрелки. Сами грани (l, r, t, b)
+    // в сетку не входят: по грани ехать нельзя, иначе линия липнет к карточке.
     const lanesX=lanesOf(rects.map(r=>[r.l,r.r]),0,W);
     const lanesY=lanesOf(rects.map(r=>[r.t,r.b]),0,H);
-    const okX=new Set(uniq(lanesX)), okY=new Set(uniq(lanesY));
-    const xs=uniq(lanesX.concat(rects.map(r=>r.cx), rects.map(r=>r.l), rects.map(r=>r.r)));
-    const ys=uniq(lanesY.concat(rects.map(r=>r.cy), rects.map(r=>r.t), rects.map(r=>r.b)));
+    const xs=uniq(lanesX.concat(rects.map(r=>r.cx),
+      rects.map(r=>r.l-GAP), rects.map(r=>r.r+GAP)).filter(v=>v>=0&&v<=W));
+    const ys=uniq(lanesY.concat(rects.map(r=>r.cy),
+      rects.map(r=>r.t-GAP), rects.map(r=>r.b+GAP)).filter(v=>v>=0&&v<=H));
     const xi={},yi={}; xs.forEach((v,i)=>xi[v]=i); ys.forEach((v,i)=>yi[v]=i);
     const id=(i,j)=>i*ys.length+j;
-    // отрезок свободен, если не заходит внутрь ни одной карточки (касание границы — можно)
+    // Отрезок свободен, если держит зазор GAP от каждой карточки. Допуск в 1 пиксель —
+    // на округление координат: обводной коридор сам стоит ровно на GAP.
     const free=(x1,y1,x2,y2)=>{
+      const g=GAP-1;
       const ax=Math.min(x1,x2),bx=Math.max(x1,x2),ay=Math.min(y1,y2),by=Math.max(y1,y2);
-      for(const r of rects) if(bx>r.l+1&&ax<r.r-1&&by>r.t+1&&ay<r.b-1) return false;
+      for(const r of rects)
+        if(bx>r.l-g&&ax<r.r+g&&by>r.t-g&&ay<r.b+g) return false;
       return true;
     };
     const adj=new Map(), segOf=new Map();
@@ -92,28 +95,26 @@ FLOW_JS = r"""
     for(let i=0;i<xs.length;i++)for(let j=0;j<ys.length;j++){
       if(i+1<xs.length && free(xs[i],ys[j],xs[i+1],ys[j])){
         const k='h'+j+':'+i, L=xs[i+1]-xs[i];
-        const w=L+(okY.has(ys[j])||L<=SHORT?0:HUG);
-        link(id(i,j),id(i+1,j),w,'h',k,xs[i],ys[j],xs[i+1],ys[j]);
-        link(id(i+1,j),id(i,j),w,'h',k,xs[i],ys[j],xs[i+1],ys[j]);
+        link(id(i,j),id(i+1,j),L,'h',k,xs[i],ys[j],xs[i+1],ys[j]);
+        link(id(i+1,j),id(i,j),L,'h',k,xs[i],ys[j],xs[i+1],ys[j]);
       }
       if(j+1<ys.length && free(xs[i],ys[j],xs[i],ys[j+1])){
         const k='v'+i+':'+j, L=ys[j+1]-ys[j];
-        const w=L+(okX.has(xs[i])||L<=SHORT?0:HUG);
-        link(id(i,j),id(i,j+1),w,'v',k,xs[i],ys[j],xs[i],ys[j+1]);
-        link(id(i,j+1),id(i,j),w,'v',k,xs[i],ys[j],xs[i],ys[j+1]);
+        link(id(i,j),id(i,j+1),L,'v',k,xs[i],ys[j],xs[i],ys[j+1]);
+        link(id(i,j+1),id(i,j),L,'v',k,xs[i],ys[j],xs[i],ys[j+1]);
       }
     }
     return {xs:xs,ys:ys,xi:xi,yi:yi,id:id,adj:adj,free:free,segOf:segOf};
   }
 
-  // Порты карточки — середины сторон; они лежат на линиях сетки, так как cx и cy
-  // мы в эту сетку добавили.
+  // Порты — точки подключения, вынесенные от граней на GAP: линия начинается и
+  // заканчивается в стороне от карточки, а не на её кромке.
   function ports(g,r){
     const out=[]; const cx=Math.round(r.cx), cy=Math.round(r.cy);
     const put=(x,y,dir)=>{ if(g.xi[x]!==undefined&&g.yi[y]!==undefined)
       out.push({n:g.id(g.xi[x],g.yi[y]),x:x,y:y,dir:dir}); };
-    put(cx,Math.round(r.t),'v'); put(cx,Math.round(r.b),'v');
-    put(Math.round(r.l),cy,'h'); put(Math.round(r.r),cy,'h');
+    put(cx,Math.round(r.t-GAP),'v'); put(cx,Math.round(r.b+GAP),'v');
+    put(Math.round(r.l-GAP),cy,'h'); put(Math.round(r.r+GAP),cy,'h');
     return out;
   }
 
@@ -193,14 +194,9 @@ FLOW_JS = r"""
     out.push(pts[pts.length-1]);
     return out;
   }
-  function trim(pts){
-    const n=pts.length;
-    if(n<2)return pts;
-    const p1=pts[n-2],p2=pts[n-1];
-    const dx=p2[0]-p1[0],dy=p2[1]-p1[1],L=Math.hypot(dx,dy)||1;
-    if(L<=TIP)return pts;
-    return pts.slice(0,n-1).concat([[p2[0]-dx/L*TIP,p2[1]-dy/L*TIP]]);
-  }
+  // Наконечник стоит на конце пути, а путь кончается в GAP от карточки — укорачивать
+  // больше ничего не надо, иначе стрелка повиснет в пустоте.
+  function trim(pts){ return pts; }
   const dstr=pts=>'M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L');
 
   function draw(){

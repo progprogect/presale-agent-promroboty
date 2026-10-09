@@ -45,6 +45,19 @@
   let turns = 0, len = 0;
   paths.forEach(p => { const sg = segs(p.getAttribute('d') || ''); turns += Math.max(0, sg.length - 1);
     sg.forEach(([a, b]) => len += Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1])); });
+  // Правило зазора: ни одна линия и ни один её конец не подходят к карточке ближе GAP.
+  const dRect = (px, py, R) => Math.hypot(Math.max(R.l-px, 0, px-R.r), Math.max(R.t-py, 0, py-R.b));
+  const dSeg = (s, R) => { let m = 1e9; const [a, b] = s, N = 24;
+    for (let k = 0; k <= N; k++) m = Math.min(m, dRect(a[0]+(b[0]-a[0])*k/N, a[1]+(b[1]-a[1])*k/N, R));
+    return m; };
+  let minGap = 1e9; const tight = [];
+  all.forEach(({ i, s }) => rects.forEach(R => { const dd = dSeg(s, R);
+    if (dd < minGap) minGap = dd;
+    if (dd < 9 && tight.length < 6) tight.push({ arrow: i, card: R.id, dist: +dd.toFixed(1) }); }));
+  let minEnd = 1e9;
+  paths.forEach(p => { const sg = segs(p.getAttribute('d') || ''); if (!sg.length) return;
+    [sg[0][0], sg[sg.length-1][1]].forEach(pt => rects.forEach(R =>
+      { minEnd = Math.min(minEnd, dRect(pt[0], pt[1], R)); })); });
   const txt = [...layer.querySelectorAll('text')].map(t => t.getBoundingClientRect());
   let ovl = 0;
   for (let i = 0; i < txt.length; i++) for (let j = i + 1; j < txt.length; j++) {
