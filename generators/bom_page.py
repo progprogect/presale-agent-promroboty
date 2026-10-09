@@ -217,6 +217,6 @@ def render(deal: dict, bom: dict) -> str:
   </div></div>
   {savebar()}"""
 
-    script = (f'const API_URL="/api/d/{deal["slug"]}/review/bom";\n'
+    script = (f'const API_BASE="/api/d/{deal["slug"]}/review/bom";\n'
               + REVIEW_JS + GROUP_JS + sch_js)
     return shell(deal, "Компоненты", "bom", body, script)

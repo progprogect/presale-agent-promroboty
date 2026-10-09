@@ -113,7 +113,7 @@ def render(deal: dict, spec: dict) -> str:
   </div>
   {savebar()}"""
 
-    script = (f'const API_URL="/api/d/{deal["slug"]}/review/questions";'
+    script = (f'const API_BASE="/api/d/{deal["slug"]}/review/questions";'
               f'const SLUG="{deal["slug"]}";\n' + REVIEW_JS + APPROVE_JS + r"""
 async function drawQGate(){
   const a=await getApprovals();const st=document.getElementById('qgate-st');

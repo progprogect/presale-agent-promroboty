@@ -168,6 +168,6 @@ def render(deal: dict, wbs: dict) -> str:
   {savebar()}"""
 
     import json
-    script = (f'const API_URL="/api/d/{deal["slug"]}/review/wbs";'
+    script = (f'const API_BASE="/api/d/{deal["slug"]}/review/wbs";'
               f'window.PAGE_ROLES={json.dumps(roles, ensure_ascii=False)};\n') + REVIEW_JS
     return shell(deal, "Декомпозиция работ", "wbs", body, script)

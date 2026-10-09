@@ -48,5 +48,5 @@ def render(deal: dict, spec: dict) -> str:
   {savebar("ТКП одобрено — можно отправлять",
            "одобрение фиксируется слоем; письмо заказчику уходит отдельным решением")}"""
 
-    script = f'const API_URL="/api/d/{deal["slug"]}/review/proposal";\n' + REVIEW_JS
+    script = f'const API_BASE="/api/d/{deal["slug"]}/review/proposal";\n' + REVIEW_JS
     return shell(deal, "ТКП", "proposal", body, script)

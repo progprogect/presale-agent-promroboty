@@ -82,8 +82,8 @@ def render(deal: dict, spec: dict) -> str:
   {savebar("Пакет принят — собирать ТКП",
            "решение фиксируется слоем; принять пакет может любой проверяющий, мы увидим кто и когда")}"""
 
-    script = (f'const API_URL="/api/d/{deal["slug"]}/review/package";'
-              f'const STATUS_URL="/api/d/{deal["slug"]}/status";'
+    script = (f'const API_BASE="/api/d/{deal["slug"]}/review/package";'
+              f'const STATUS_BASE="/api/d/{deal["slug"]}/status";'
               f'const SLUG="{deal["slug"]}";'
               f'const PAGE_LABELS={json.dumps(dict(PAGES), ensure_ascii=False)};\n'
               + REVIEW_JS + APPROVE_JS + r"""
@@ -122,7 +122,7 @@ drawApprovals();
 // состояние разделов пакета: сколько слоёв правок и кто завершил проверку
 (async()=>{
   try{
-    const r=await fetch(STATUS_URL);if(!r.ok)return;
+    const r=await fetch(STATUS_BASE+UQ);if(!r.ok)return;
     const st=await r.json();
     document.querySelectorAll('.secrow').forEach(row=>{
       const s=st[row.dataset.page]||{};const el=row.querySelector('.st');

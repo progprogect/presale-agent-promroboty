@@ -123,21 +123,25 @@ def health() -> dict:
 
 
 @app.get("/")
-def index() -> FileResponse:
+def index(request: Request) -> FileResponse:
+    # Витрина перечисляет все проекты на проверке — наружу её не отдаём.
+    # Проверяющий ходит не сюда, а в свой кабинет /u/<токен>.
+    _admin_auth(request)
     return FileResponse(BUILD / "index.html")
 
 
 @app.get("/d/{slug}")
 @app.get("/d/{slug}/")
-def deal_card(slug: str) -> FileResponse:
+def deal_card(request: Request, slug: str, u: str | None = None) -> FileResponse:
     """Корень карточки проекта — страница «Обзор»."""
-    return deal_page(slug, "package")
+    return deal_page(request, slug, "package", u)
 
 
 @app.get("/d/{slug}/{page}")
-def deal_page(slug: str, page: str, u: str | None = None) -> FileResponse:
+def deal_page(request: Request, slug: str, page: str, u: str | None = None) -> FileResponse:
     if page not in PAGE_IDS:
         raise HTTPException(404)
+    _deal_access(slug, u, request)   # раздел открывается только по персональной ссылке или из админки
     if page == "proposal" and DB_URL and not _kp_allowed(slug, u):
         # ТКП видят только назначенные с флагом доступа (ссылка из личного кабинета)
         raise HTTPException(403, "доступ к ТКП выдаётся отдельно — зайдите по своей персональной ссылке")
@@ -145,6 +149,29 @@ def deal_page(slug: str, page: str, u: str | None = None) -> FileResponse:
     if not path.exists():
         raise HTTPException(404)
     return FileResponse(path)
+
+
+def _deal_access(slug: str, token: str | None, request: Request) -> str | None:
+    """Доступ к разделам карточки: персональная ссылка назначенного либо вход в админку.
+
+    Раньше страницы и API карточки были открыты всем, у кого есть ссылка: её можно было
+    переслать куда угодно, и посторонний читал состав, часы и замечания. Теперь нужен токен.
+    Возвращает имя человека (для авторства правок) либо None, если это вход по админке.
+    """
+    if token and DB_URL:
+        with _db() as conn:
+            row = conn.execute("""SELECT p.name FROM people p
+                JOIN assignments a ON a.person_id = p.id
+                WHERE p.token=%s AND p.active AND a.slug=%s""", (token, slug)).fetchone()
+        if row:
+            return row[0]
+        # Ссылка есть, но прав не даёт: отзывали доступ, сняли назначение или ссылка чужая.
+        # Окно входа в админку здесь только сбило бы с толку — говорим прямо.
+        raise HTTPException(403, "эта ссылка не даёт доступа к проекту — "
+                                 "запросите персональную ссылку у ответственного за проект")
+    # ссылки нет вовсе — остаётся вход в админку (это директор)
+    _admin_auth(request)
+    return None
 
 
 def _deal_file(slug: str, folder: str, name: str) -> FileResponse:
@@ -158,7 +185,8 @@ def _deal_file(slug: str, folder: str, name: str) -> FileResponse:
 
 
 @app.get("/d/{slug}/img/{name}")
-def deal_img(slug: str, name: str) -> FileResponse:
+def deal_img(request: Request, slug: str, name: str, u: str | None = None) -> FileResponse:
+    _deal_access(slug, u, request)
     return _deal_file(slug, "img", name)
 
 
@@ -757,10 +785,11 @@ def approve(slug: str, a: ApproveIn) -> dict:
 
 
 @app.get("/api/d/{slug}/approvals")
-def approvals(slug: str) -> JSONResponse:
+def approvals(request: Request, slug: str, u: str | None = None) -> JSONResponse:
     _need_db()
     if "/" in slug or ".." in slug:
         raise HTTPException(404)
+    _deal_access(slug, u, request)
     with _db() as conn:
         apps = conn.execute("""SELECT a.kind, a.role, a.note, a.ts, p.name
             FROM approvals a JOIN people p ON p.id=a.person_id
@@ -794,6 +823,7 @@ def _kp_allowed(slug: str, token: str | None) -> bool:
 
 
 class Review(BaseModel):
+    token: str | None = None       # персональная ссылка проверяющего
     reviewer: str
     done: bool = False
     hours: dict[str, float] = {}
@@ -814,16 +844,18 @@ def deals() -> FileResponse:
 
 
 @app.get("/api/d/{slug}/review/{page}")
-def get_review(slug: str, page: str) -> JSONResponse:
+def get_review(request: Request, slug: str, page: str, u: str | None = None) -> JSONResponse:
     _check_ref(slug, page)
+    _deal_access(slug, u, request)
     return JSONResponse(_get_updates(slug, page))
 
 
 @app.get("/api/d/{slug}/status")
-def deal_status(slug: str) -> JSONResponse:
+def deal_status(request: Request, slug: str, u: str | None = None) -> JSONResponse:
     """Состояние разделов карточки: сколько слоёв правок и кто завершил проверку."""
     if "/" in slug or ".." in slug:
         raise HTTPException(404)
+    _deal_access(slug, u, request)
     out = {}
     for page in PAGE_IDS:
         ups = _get_updates(slug, page)["updates"]
@@ -836,9 +868,15 @@ def deal_status(slug: str) -> JSONResponse:
 
 
 @app.post("/api/d/{slug}/review/{page}")
-def post_review(slug: str, page: str, review: Review) -> dict:
+def post_review(request: Request, slug: str, page: str, review: Review) -> dict:
     _check_ref(slug, page)
+    # Правка возможна только по персональной ссылке назначенного (или из админки).
+    # Имя из токена пишем рядом с введённым: так видно, кто на самом деле правил.
+    who = _deal_access(slug, review.token, request)
     entry = review.model_dump()
+    entry.pop("token", None)
+    if who:
+        entry["by"] = who
     entry["ts"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     n = _add_update(slug, page, entry)
     if review.done:  # локальный агент узнаёт о завершённой проверке сразу (очередь событий)

@@ -289,6 +289,11 @@ def shell(deal: dict, page_title: str, active: str, body: str, script: str = "")
 
 # Общий JS: степперы Фибоначчи, сворачивание этапов, слой правок и отправка.
 REVIEW_JS = r"""
+// Персональная ссылка проверяющего. Разделы карточки и их API закрыты токеном:
+// без него сервер не отдаст ни страницу, ни слои правок (вход из админки — отдельный путь).
+const U_TOKEN=new URLSearchParams(location.search).get('u');
+const UQ=U_TOKEN?('?u='+encodeURIComponent(U_TOKEN)):'';
+const API_URL=API_BASE+UQ;
 const FIB=[1,2,3,5,8,13,21,34,55,89];
 const num=t=>+String(t).replace(',','.');
 const fmtH=v=>String(Math.round(v*100)/100).replace('.',',');
@@ -438,7 +443,7 @@ async function send(done,note){
   const reviewer=document.getElementById('reviewer').value.trim();
   if(!reviewer){statusEl.textContent='укажите имя';return;}
   try{localStorage.setItem('reviewer',reviewer);}catch(e){}
-  const body={reviewer:reviewer+(note||''),done,...edits,
+  const body={token:U_TOKEN,reviewer:reviewer+(note||''),done,...edits,
     added:edits.added.filter(a=>a.name&&Object.keys(a.hours).length)};
   const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)});
@@ -451,9 +456,8 @@ async function send(done,note){
 document.getElementById('btn-save').onclick=()=>send(false);
 document.getElementById('btn-done').onclick=()=>send(true);
 try{const n=localStorage.getItem('reviewer');if(n)document.getElementById('reviewer').value=n;}catch(e){}
-// персональная ссылка (?u=<токен>): имя валидатора подставляется само
-const uTok=new URLSearchParams(location.search).get('u');
-if(uTok)fetch('/api/u/'+uTok).then(r=>r.ok?r.json():null).then(d=>{
+// имя валидатора подставляется само по персональной ссылке
+if(U_TOKEN)fetch('/api/u/'+U_TOKEN).then(r=>r.ok?r.json():null).then(d=>{
   if(d&&d.name){const el=document.getElementById('reviewer');
     if(el)el.value=d.name;try{localStorage.setItem('reviewer',d.name);}catch(e){}}});
 // подсказки
@@ -513,7 +517,6 @@ document.querySelectorAll('.mic-btn').forEach(b=>{
 # Гейты и согласования по ролям (фаза 2): статус с /api/d/<slug>/approvals,
 # кнопки работают по персональной ссылке (?u=<токен>), роль берётся с /api/u/<токен>.
 APPROVE_JS = r"""
-const U_TOKEN=new URLSearchParams(location.search).get('u');
 let MY_ROLE=null,MY_NAME=null;
 async function myRole(){
   if(!U_TOKEN)return null;
@@ -522,7 +525,7 @@ async function myRole(){
   return MY_ROLE;
 }
 async function getApprovals(){
-  try{const r=await fetch('/api/d/'+SLUG+'/approvals');return r.ok?await r.json():null;}catch(e){return null;}
+  try{const r=await fetch('/api/d/'+SLUG+'/approvals'+UQ);return r.ok?await r.json():null;}catch(e){return null;}
 }
 async function sendApprove(kind,note){
   const r=await fetch('/api/d/'+SLUG+'/approve',{method:'POST',
