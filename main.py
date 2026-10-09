@@ -119,7 +119,7 @@ def _add_update(slug: str, page: str, entry: dict) -> int:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "0.6"}
+    return {"status": "ok", "version": "0.7"}
 
 
 @app.get("/")
