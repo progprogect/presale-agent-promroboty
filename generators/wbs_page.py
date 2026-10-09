@@ -132,15 +132,17 @@ def render(deal: dict, wbs: dict) -> str:
     </tbody>""")
 
     role_names = wbs.get("role_names", {})
-    legend = " · ".join(f"<b>{esc(r)}</b> — {esc(role_names.get(r, '?'))}" for r in roles)
+    # Шапка подписывается самой ролью (КД, АСУ, ПО…), а не буквой: иначе расшифровку
+    # приходится держать в голове или искать в легенде, которая уезжает за край экрана.
+    legend = "".join(f"<li><b>{esc(r)}</b> {esc(role_names.get(r, '?'))}</li>" for r in roles)
     role_th = "".join(
-        f'<th class="num" title="{esc(role_names.get(r, ""))}">{esc(r)}</th>' for r in roles)
+        f'<th class="num role" title="{esc(role_names.get(r, ""))}">{esc(r)}</th>' for r in roles)
     role_tf = "".join(f"<td>{fmt_h(role_tot[r])}</td>" for r in roles)
     opt_note = f" · опции вне итога: {fmt_h(opt_grand)} ч" if opt_grand else ""
     tf_label = "Итого по ролям (без опций)" if opt_grand else "Итого по ролям"
 
     body = f"""
-  <p class="legend">{legend}</p>
+  <ul class="legend">{legend}</ul>
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
     <button class="btn btn-sm" onclick="toggleAll(true)">Развернуть</button>
     <button class="btn btn-sm" onclick="toggleAll(false)">Свернуть</button>

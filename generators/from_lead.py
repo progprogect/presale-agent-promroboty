@@ -312,8 +312,14 @@ def main() -> None:
     deal_yaml = out_dir / "deal.yaml"
     if deal_yaml.exists():
         d = yaml.safe_load(deal_yaml.read_text(encoding="utf-8")) or {}
-        if list(d.get("tz_files") or []) != tz_names:
+        own = bool(rules.get("tz_own"))
+        if list(d.get("tz_files") or []) != tz_names or bool(d.get("tz_own")) != own:
             d["tz_files"] = tz_names
+            # Задание, собранное нами вместо заказчика, на карточке называется своим именем.
+            if own:
+                d["tz_own"] = True
+            else:
+                d.pop("tz_own", None)
             deal_yaml.write_text(yaml.dump(d, allow_unicode=True, sort_keys=False, width=100),
                                  encoding="utf-8")
             print(f"deal.yaml: записаны имена файлов задания ({len(tz_names)})")

@@ -122,6 +122,8 @@ def build_all() -> list[str]:
         # (.gitignore) — в deal.yaml лежат только имена, их пишет from_lead.
         # Файлы уходят на портал защищённым каналом и отдаются по гейту.
         pkg_spec["tz_files"] = list(deal.get("tz_files") or [])
+        # Задание, собранное нами вместо заказчика, называется на карточке иначе.
+        pkg_spec["tz_own"] = bool(deal.get("tz_own"))
         (out / "package.html").write_text(overview_page.render(deal, pkg_spec))
         built.append(f"{deal['slug']}/package.html")
     (BUILD / "index.html").write_text(_index(deals))

@@ -68,8 +68,15 @@ tr.stageio td{background:var(--tblr-bg-surface-tertiary);padding:10px 12px}
 .io2 ul{margin:0;padding-left:16px}
 .io2 li{margin:1px 0}
 .io2 .cbox{margin-top:6px;max-width:none}
-.legend{font-size:12px;color:var(--tblr-secondary);margin:0 0 10px}
-.legend b{color:var(--tblr-body-color)}
+/* Легенда ролей: раньше шла одной строкой и на широком экране уезжала за край —
+   кто такой «М», было не узнать. Теперь плитки, которые переносятся. */
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;padding:0;list-style:none}
+.legend li{display:flex;align-items:baseline;gap:6px;font-size:11.5px;
+  color:var(--tblr-secondary);background:var(--tblr-bg-surface-secondary);
+  border:1px solid var(--tblr-border-color);border-radius:6px;padding:3px 9px}
+.legend b{color:var(--tblr-body-color);font-size:11px;letter-spacing:.02em;white-space:nowrap}
+table.matrix th.num{white-space:nowrap}
+table.matrix th.role{font-size:11px;letter-spacing:.02em}
 #tips{font-size:12.5px}
 #tips ul{margin:4px 0 0;padding-left:18px}
 #tips li{margin:2px 0}
