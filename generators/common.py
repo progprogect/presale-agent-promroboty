@@ -286,6 +286,22 @@ def context_block(deal: dict, active: str) -> str:
     return f'<div class="ctx">{"".join(parts)}</div>'
 
 
+# Персональный код из адреса переносится во ВСЕ ссылки на разделы и файлы карточки:
+# вкладки, список разделов на «Обзоре», ссылку на задание. Без этого первый же переход
+# уходил без кода, сервер считал это заходом директора мимо персональной ссылки и
+# показывал окно пароля админки (найдено 12.10.2026).
+# При входе по логину и паролю кода в адресе нет — вкладки остаются обычными ссылками,
+# доступ держит сессия браузера.
+NAV_TOKEN_JS = (
+    "(function(){var u=new URLSearchParams(location.search).get('u');if(!u)return;"
+    "function fix(){document.querySelectorAll('a[href^=\"/d/\"]').forEach(function(a){"
+    "var h=a.getAttribute('href');if(h&&h.indexOf('u=')<0)"
+    "a.setAttribute('href',h+(h.indexOf('?')<0?'?':'&')+'u='+encodeURIComponent(u));});}"
+    "if(document.readyState==='loading')"
+    "document.addEventListener('DOMContentLoaded',fix);else fix();})();"
+)
+
+
 def shell(deal: dict, page_title: str, active: str, body: str, script: str = "") -> str:
     """Каркас страницы: Tabler + шапка сделки + навигация WBS/BOM."""
     def tab(name: str, label: str) -> str:
@@ -321,6 +337,7 @@ def shell(deal: dict, page_title: str, active: str, body: str, script: str = "")
   {context_block(deal, active)}
   {body}
 </div>
+<script>{NAV_TOKEN_JS}</script>
 <script>{script}</script>
 </body>
 </html>"""

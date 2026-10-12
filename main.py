@@ -4,6 +4,7 @@ v0.2: страницы WBS и компонентов строятся CSPL-ге�
 правки валидаторов сохраняются слоем в runtime/ (наша версия не затирается).
 """
 import base64
+import hashlib
 import json
 import mimetypes
 import os
@@ -58,6 +59,14 @@ def startup() -> None:
                 org text DEFAULT '', role text DEFAULT 'viewer',
                 token text UNIQUE NOT NULL, active boolean DEFAULT true,
                 created timestamptz DEFAULT now())""")
+            # Вход по логину и паролю — второй путь рядом с персональной ссылкой.
+            # Сам пароль не хранится: в pass_hash лежит отпечаток (PBKDF2), по нему
+            # пароль не восстановить — забытый пароль только выдаётся заново.
+            conn.execute("ALTER TABLE people ADD COLUMN IF NOT EXISTS login text")
+            conn.execute("ALTER TABLE people ADD COLUMN IF NOT EXISTS pass_hash text")
+            conn.execute("ALTER TABLE people ADD COLUMN IF NOT EXISTS pass_set timestamptz")
+            conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS people_login_uniq
+                ON people (lower(login)) WHERE login IS NOT NULL""")
             conn.execute("""CREATE TABLE IF NOT EXISTS assignments (
                 id serial PRIMARY KEY, person_id int NOT NULL REFERENCES people(id),
                 slug text NOT NULL, role text NOT NULL, pages jsonb,
@@ -142,7 +151,7 @@ def deal_page(request: Request, slug: str, page: str, u: str | None = None) -> F
     if page not in PAGE_IDS:
         raise HTTPException(404)
     _deal_access(slug, u, request)   # раздел открывается только по персональной ссылке или из админки
-    if page == "proposal" and DB_URL and not _kp_allowed(slug, u):
+    if page == "proposal" and DB_URL and not _kp_allowed(slug, u, request):
         # ТКП видят только назначенные с флагом доступа (ссылка из личного кабинета)
         raise HTTPException(403, "доступ к ТКП выдаётся отдельно — зайдите по своей персональной ссылке")
     path = BUILD / slug / f"{page}.html"
@@ -152,11 +161,16 @@ def deal_page(request: Request, slug: str, page: str, u: str | None = None) -> F
 
 
 def _deal_access(slug: str, token: str | None, request: Request) -> str | None:
-    """Доступ к разделам карточки: персональная ссылка назначенного либо вход в админку.
+    """Доступ к разделам карточки. Три пути, в этом порядке:
+
+    1. персональная ссылка назначенного (?u=<код>);
+    2. его собственные логин и пароль, выданные в админке, — назначение на проект проверяется
+       так же, как у ссылки;
+    3. логин и пароль директора — вход мимо персональной ссылки.
 
     Раньше страницы и API карточки были открыты всем, у кого есть ссылка: её можно было
     переслать куда угодно, и посторонний читал состав, часы и замечания. Теперь нужен токен.
-    Возвращает имя человека (для авторства правок) либо None, если это вход по админке.
+    Возвращает имя человека (для авторства правок) либо None, если это вход директора.
     """
     if token and DB_URL:
         with _db() as conn:
@@ -166,12 +180,22 @@ def _deal_access(slug: str, token: str | None, request: Request) -> str | None:
         if row:
             return row[0]
         # Ссылка есть, но прав не даёт: отзывали доступ, сняли назначение или ссылка чужая.
-        # Окно входа в админку здесь только сбило бы с толку — говорим прямо.
+        # Окно входа здесь только сбило бы с толку — говорим прямо.
         raise HTTPException(403, "эта ссылка не даёт доступа к проекту — "
                                  "запросите персональную ссылку у ответственного за проект")
-    # ссылки нет вовсе — остаётся вход в админку (это директор)
-    _admin_auth(request)
-    return None
+    who = _person_by_login(request)
+    if who:
+        with _db() as conn:
+            row = conn.execute("SELECT 1 FROM assignments WHERE person_id=%s AND slug=%s",
+                               (who[0], slug)).fetchone()
+        if row:
+            return who[1]
+        raise HTTPException(403, "этот проект вам не назначен — "
+                                 "напишите ответственному за проект, он откроет доступ")
+    if _is_admin_basic(request):
+        return None
+    raise HTTPException(401, "нужен вход: ваши логин и пароль либо персональная ссылка",
+                        headers={"WWW-Authenticate": 'Basic realm="project"'})
 
 
 def _deal_file(slug: str, folder: str, name: str) -> FileResponse:
@@ -196,7 +220,7 @@ def deal_proposal_file(request: Request, slug: str, name: str, u: str | None = N
     файл в публичном репозитории НЕ лежит, приходит защищённым каналом выгрузки
     (tools/push_pipeline.py -> cardkp/<слаг>/<файл>) и отдаётся только по персональной ссылке
     назначенного с доступом к ТКП либо после входа в админку."""
-    if not _kp_allowed(slug, u):
+    if not _kp_allowed(slug, u, request):
         _admin_auth(request)
     if "/" in slug or ".." in slug or "/" in name or ".." in name:
         raise HTTPException(404)
@@ -215,7 +239,7 @@ def deal_tz_file(request: Request, slug: str, name: str, u: str | None = None):
     поэтому: (1) сам файл в публичном репозитории НЕ лежит — он приходит защищённым каналом
     выгрузки и хранится рядом с пайплайном; (2) отдаётся либо по персональной ссылке
     назначенного с доступом к ТКП, либо после входа в админку (это директор)."""
-    if not _kp_allowed(slug, u):
+    if not _kp_allowed(slug, u, request):
         _admin_auth(request)      # поднимет 401 с окном входа — директор откроет файл прямо из карточки
     if "/" in slug or ".." in slug or "/" in name or ".." in name:
         raise HTTPException(404)
@@ -233,6 +257,98 @@ def deal_tz_file(request: Request, slug: str, name: str, u: str | None = None):
 # tools/push_pipeline.py НАПРЯМУЮ в Postgres — в публичный репозиторий не попадают.
 # Доступ на чтение — HTTP Basic (PIPELINE_USER / PIPELINE_PASSWORD в env Railway),
 # выгрузка — токен PIPELINE_UPLOAD_TOKEN.
+
+# --- Логин и пароль специалиста -------------------------------------------------
+# Пароль хранится отпечатком: PBKDF2-HMAC-SHA256, 200 000 итераций, соль на каждого.
+# Формат строки: pbkdf2$<итераций>$<соль hex>$<отпечаток hex>.
+
+_PWD_ITER = 200_000
+# Алфавит без похожих знаков (0/O, 1/l/I): пароль диктуется по телефону без переспросов.
+_PWD_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"
+_TRANSLIT = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e", "ж": "zh",
+    "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o",
+    "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "h", "ц": "c",
+    "ч": "ch", "ш": "sh", "щ": "sch", "ъ": "", "ы": "y", "ь": "", "э": "e",
+    "ю": "yu", "я": "ya",
+}
+
+
+def _pwd_hash(password: str, salt: bytes | None = None) -> str:
+    salt = salt or secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _PWD_ITER)
+    return f"pbkdf2${_PWD_ITER}${salt.hex()}${dk.hex()}"
+
+
+def _pwd_check(password: str, stored: str | None) -> bool:
+    if not stored or not stored.startswith("pbkdf2$"):
+        return False
+    try:
+        _, iters, salt_hex, want = stored.split("$", 3)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"),
+                                 bytes.fromhex(salt_hex), int(iters))
+    except Exception:
+        return False
+    return secrets.compare_digest(dk.hex(), want)
+
+
+def _gen_password() -> str:
+    """Три группы по четыре знака: читается с экрана и диктуется голосом."""
+    raw = "".join(secrets.choice(_PWD_ALPHABET) for _ in range(12))
+    return f"{raw[:4]}-{raw[4:8]}-{raw[8:]}"
+
+
+def _gen_login(name: str, email: str, taken: set[str]) -> str:
+    """Логин из имени латиницей (ivan.petrov); если занят — с цифрой на конце."""
+    base = "".join(_TRANSLIT.get(ch, ch) for ch in name.strip().lower())
+    base = "".join(ch if ch.isalnum() else "." for ch in base)
+    base = ".".join(part for part in base.split(".") if part)[:28]
+    # Логин уходит в заголовок Basic — только латиница и цифры, иначе браузер его не передаст.
+    if not base or not base.isascii() or not base[0].isalpha():
+        base = (email.split("@")[0] or "user").lower()
+        base = "".join(ch for ch in base if (ch.isalnum() and ch.isascii()) or ch in "._-")[:28]
+        base = base or f"user{secrets.randbelow(1000)}"
+    if base not in taken:
+        return base
+    for n in range(2, 100):
+        if f"{base}{n}" not in taken:
+            return f"{base}{n}"
+    return f"{base}{secrets.randbelow(10000)}"
+
+
+def _person_by_login(request: Request) -> tuple[int, str] | None:
+    """Опознание специалиста по Basic-заголовку. None — заголовка нет или не подошёл."""
+    hdr = request.headers.get("authorization", "")
+    if not hdr.startswith("Basic ") or not DB_URL:
+        return None
+    try:
+        got_u, _, got_p = base64.b64decode(hdr[6:]).decode("utf-8").partition(":")
+    except Exception:
+        return None
+    if not got_u or not got_p:
+        return None
+    with _db() as conn:
+        row = conn.execute(
+            "SELECT id, name, pass_hash FROM people WHERE lower(login)=lower(%s) AND active",
+            (got_u,)).fetchone()
+    if not row or not _pwd_check(got_p, row[2]):
+        return None
+    return row[0], row[1]
+
+
+def _is_admin_basic(request: Request) -> bool:
+    """Те же логин и пароль, что у админки, — вход директора без персональной ссылки."""
+    user = os.environ.get("ADMIN_USER") or os.environ.get("PIPELINE_USER", "")
+    pwd = os.environ.get("ADMIN_PASSWORD") or os.environ.get("PIPELINE_PASSWORD", "")
+    hdr = request.headers.get("authorization", "")
+    if not (user and pwd) or not hdr.startswith("Basic "):
+        return False
+    try:
+        got_u, _, got_p = base64.b64decode(hdr[6:]).decode("utf-8").partition(":")
+    except Exception:
+        return False
+    return secrets.compare_digest(got_u, user) and secrets.compare_digest(got_p, pwd)
+
 
 def _pipeline_auth(request: Request) -> None:
     user = os.environ.get("PIPELINE_USER", "")
@@ -350,8 +466,27 @@ TPL_REMIND_DEFAULT = {
 Если что-то мешает закончить (нет данных, непонятно, нужен созвон) — напишите это
 комментарием прямо на странице, нам этого достаточно.""",
 }
-TEMPLATE_KEYS = ("tpl_invite", "tpl_remind")
-TPL_DEFAULTS = {"tpl_invite": TPL_INVITE_DEFAULT, "tpl_remind": TPL_REMIND_DEFAULT}
+TPL_CREDS_DEFAULT = {
+    "subject": "Доступ к проверке проектов: ваши логин и пароль",
+    "body": """Добрый день!
+
+Высылаем доступ к страницам проверки проектов.
+
+Адрес: {base}
+Логин: {login}
+Пароль: {password}
+
+Логин и пароль спросит браузер при открытии любого раздела проекта — введите их один
+раз, дальше переходы между разделами работают сами. Открыты только те проекты, которые
+вам назначены.
+
+Персональная ссылка тоже продолжает работать, если вам удобнее по ней: {link}
+
+Пароль у нас не хранится — если потеряется, мы выдадим новый.""",
+}
+TEMPLATE_KEYS = ("tpl_invite", "tpl_remind", "tpl_creds")
+TPL_DEFAULTS = {"tpl_invite": TPL_INVITE_DEFAULT, "tpl_remind": TPL_REMIND_DEFAULT,
+                "tpl_creds": TPL_CREDS_DEFAULT}
 
 
 class _SafeMap(dict):
@@ -488,9 +623,11 @@ def admin_overview(request: Request) -> JSONResponse:
     _need_db()
     deals_map = _deal_titles()
     with _db() as conn:
-        people = [dict(zip(("id", "name", "email", "org", "role", "token", "active"), r))
+        people = [dict(zip(("id", "name", "email", "org", "role", "token", "active",
+                            "login", "has_pass"), r))
                   for r in conn.execute(
-                      "SELECT id, name, email, org, role, token, active FROM people ORDER BY id")]
+                      """SELECT id, name, email, org, role, token, active, login,
+                         (pass_hash IS NOT NULL) FROM people ORDER BY id""")]
         assigns = [dict(zip(("id", "person_id", "slug", "role", "pages", "kp"), r))
                    for r in conn.execute(
                        "SELECT id, person_id, slug, role, pages, kp FROM assignments ORDER BY id")]
@@ -588,6 +725,55 @@ def admin_person_active(request: Request, pid: int, body: dict) -> dict:
         conn.execute("UPDATE people SET active=%s WHERE id=%s", (bool(body.get("active")), pid))
         conn.commit()
     return {"status": "ok"}
+
+
+@app.post("/api/admin/people/{pid}/credentials")
+def admin_gen_credentials(request: Request, pid: int) -> dict:
+    """Выдать логин и пароль. Пароль возвращается ОДИН раз — в базе только отпечаток.
+    Повторный вызов выдаёт новый пароль, старый перестаёт работать."""
+    _admin_auth(request)
+    _need_db()
+    with _db() as conn:
+        person = conn.execute("SELECT name, email, login FROM people WHERE id=%s",
+                              (pid,)).fetchone()
+        if not person:
+            raise HTTPException(404, "нет такого человека")
+        taken = {r[0].lower() for r in conn.execute(
+            "SELECT login FROM people WHERE login IS NOT NULL AND id<>%s", (pid,)).fetchall()}
+        login = person[2] or _gen_login(person[0], person[1], taken)
+        password = _gen_password()
+        conn.execute("UPDATE people SET login=%s, pass_hash=%s, pass_set=now() WHERE id=%s",
+                     (login, _pwd_hash(password), pid))
+        conn.commit()
+    return {"login": login, "password": password, "name": person[0], "email": person[1]}
+
+
+class CredsMailIn(BaseModel):
+    login: str
+    password: str
+
+
+@app.post("/api/admin/people/{pid}/credentials/send")
+def admin_send_credentials(request: Request, pid: int, c: CredsMailIn) -> dict:
+    """Письмо с доступами по шаблону из админки. Отправляет локальный слушатель."""
+    _admin_auth(request)
+    _need_db()
+    with _db() as conn:
+        person = conn.execute(
+            "SELECT name, email, token, login FROM people WHERE id=%s AND active", (pid,)).fetchone()
+    if not person:
+        raise HTTPException(404, "нет такого человека")
+    if not c.password.strip():
+        raise HTTPException(400, "нечего отправлять: сначала выдайте пароль")
+    tpl = _kv_get("tpl_creds", TPL_CREDS_DEFAULT)
+    base = os.environ.get("PUBLIC_URL", "https://project.promroboty.by").rstrip("/")
+    ctx = _SafeMap(name=person[0], base=base, login=c.login.strip(),
+                   password=c.password.strip(), link=f"{base}/u/{person[2]}")
+    eid = _add_event("credentials", "", {
+        "person": {"name": person[0], "email": person[1]},
+        "mail": {"to": person[1], "subject": tpl["subject"].format_map(ctx),
+                 "body": tpl["body"].format_map(ctx)}})
+    return {"status": "ok", "event": eid}
 
 
 @app.post("/api/admin/assign")
@@ -824,14 +1010,24 @@ def approvals(request: Request, slug: str, u: str | None = None) -> JSONResponse
                      for n, r in assigned]})
 
 
-def _kp_allowed(slug: str, token: str | None) -> bool:
-    if not (DB_URL and token):
+def _kp_allowed(slug: str, token: str | None, request: Request | None = None) -> bool:
+    """Флаг доступа к ТКП у назначения — по персональной ссылке или по логину специалиста."""
+    if not DB_URL:
         return False
-    with _db() as conn:
-        row = conn.execute("""SELECT a.kp FROM people p
-            JOIN assignments a ON a.person_id=p.id
-            WHERE p.token=%s AND p.active AND a.slug=%s""", (token, slug)).fetchone()
-    return bool(row and row[0])
+    if token:
+        with _db() as conn:
+            row = conn.execute("""SELECT a.kp FROM people p
+                JOIN assignments a ON a.person_id=p.id
+                WHERE p.token=%s AND p.active AND a.slug=%s""", (token, slug)).fetchone()
+        return bool(row and row[0])
+    if request is not None:
+        who = _person_by_login(request)
+        if who:
+            with _db() as conn:
+                row = conn.execute("SELECT kp FROM assignments WHERE person_id=%s AND slug=%s",
+                                   (who[0], slug)).fetchone()
+            return bool(row and row[0])
+    return False
 
 
 class Review(BaseModel):

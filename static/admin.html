@@ -23,6 +23,10 @@ td,th{padding:6px 8px;vertical-align:middle}
 .pers .x{cursor:pointer;color:var(--tblr-secondary)}
 .pers .x:hover{color:var(--tblr-red)}
 .linkbox{font-family:monospace;font-size:11px;color:var(--tblr-secondary);cursor:pointer}
+.credbox{display:flex;flex-direction:column;gap:4px}
+.credbox code{font-size:13px;background:var(--tblr-yellow-lt);padding:1px 5px;border-radius:3px}
+.credbox .x{cursor:pointer;color:var(--tblr-secondary)}
+.credact{display:flex;gap:4px}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
 .ok{background:var(--tblr-green)} .bad{background:var(--tblr-red)}
 .muted{color:var(--tblr-secondary);font-size:12px}
@@ -106,13 +110,13 @@ td,th{padding:6px 8px;vertical-align:middle}
         </tr>
         <tr>
           <td><a href="/" target="_blank">/</a><br><span class="muted">Витрина</span></td>
-          <td>проверяющие, по персональной ссылке</td>
+          <td>проверяющие — по персональной ссылке либо по своим логину и паролю</td>
           <td>Карточки проектов на проверке. Это то, что видит приглашённый специалист.
             Имя заказчика и наши деньги сюда не выводятся.</td>
         </tr>
       </table>
 
-      <h4>Как отправить проект специалисту — пять шагов</h4>
+      <h4>Как отправить проект специалисту — шесть шагов</h4>
       <ol>
         <li><b>Люди</b> (блок внизу этой страницы) — добавьте человека: имя, почта, организация.</li>
         <li><b>Назначить на проект</b> — выберите человека, проект, его роль и отметьте,
@@ -120,7 +124,14 @@ td,th{padding:6px 8px;vertical-align:middle}
           предложение, и исходное задание заказчика.</li>
         <li>Приглашение уйдёт ему на почту автоматически, по шаблону из блока
           <b>Шаблоны писем</b>. Текст шаблона правится там же.</li>
-        <li>Человек открывает карточку по своей персональной ссылке, отмечает по каждому пункту
+        <li>Если человеку удобнее заходить логином и паролем, а не ссылкой из письма —
+          в блоке <b>Люди</b> нажмите <b>«Выдать логин и пароль»</b>, затем
+          <b>«Отправить на почту»</b>. Пароль показывается один раз, здесь и сейчас:
+          в базе от него остаётся только отпечаток, по которому пароль не восстановить.
+          Потерялся — выдайте новый, старый сразу перестанет работать.
+          Доступ открыт к тем же проектам, что и по ссылке, — только к назначенным.</li>
+        <li>Человек открывает карточку — по ссылке из письма или введя логин с паролем, —
+          отмечает по каждому пункту
           «согласен / спорно / неверно» и пишет замечания. Наша версия при этом не затирается —
           его правки ложатся отдельным слоем.</li>
         <li>Следите за ходом в таблице <b>Пайплайн</b> вверху: точка — раздел не открывали,
@@ -246,6 +257,7 @@ td,th{padding:6px 8px;vertical-align:middle}
       <select id="tpl-key" class="form-select form-select-sm" style="max-width:280px" onchange="showTpl()">
         <option value="tpl_invite">Приглашение (при назначении)</option>
         <option value="tpl_remind">Напоминание (кнопка 🔔 / «Напомнить ждущим»)</option>
+        <option value="tpl_creds">Логин и пароль (кнопка «Отправить на почту»)</option>
       </select>
       <input id="tpl-subject" class="form-control form-control-sm" placeholder="Тема">
       <textarea id="tpl-body" class="form-control" rows="9" style="font-size:12.5px"></textarea>
@@ -316,12 +328,25 @@ function render(){
   }
   document.getElementById('pipe').innerHTML=h;
   // люди
-  let ph='<tr><th>Имя</th><th>Email</th><th>Организация</th><th>Роль</th><th>Личная ссылка</th><th></th></tr>';
+  let ph='<tr><th>Имя</th><th>Email</th><th>Роль</th><th>Личная ссылка</th><th>Логин и пароль</th><th></th></tr>';
   for(const p of D.people){
     const link=location.origin+'/u/'+p.token;
-    ph+='<tr'+(p.active?'':' style="opacity:.45"')+'><td><b>'+p.name+'</b></td><td>'+p.email+'</td><td>'+(p.org||'')+'</td>'+
+    const shown=CREDS[p.id];
+    // Пароль живёт только на этой странице до перезагрузки: в базе лежит отпечаток.
+    const cred=shown
+      ? '<div class="credbox"><div><b>'+shown.login+'</b> &nbsp; <code>'+shown.password+'</code>'+
+        ' <span class="x" onclick="copy(\''+shown.login+' / '+shown.password+'\')" title="Скопировать">⧉</span></div>'+
+        '<div class="credact"><button class="btn btn-sm btn-primary" onclick="sendCreds('+p.id+')">Отправить на почту</button>'+
+        '<button class="btn btn-sm" onclick="genCreds('+p.id+')">Другой пароль</button></div></div>'
+      : (p.login
+          ? '<span class="text-secondary">'+p.login+' · пароль выдан</span> '+
+            '<button class="btn btn-sm" onclick="genCreds('+p.id+')">Новый пароль</button>'
+          : '<button class="btn btn-sm" onclick="genCreds('+p.id+')">Выдать логин и пароль</button>');
+    ph+='<tr'+(p.active?'':' style="opacity:.45"')+'><td><b>'+p.name+'</b><div class="text-secondary">'+(p.org||'')+'</div></td>'+
+      '<td>'+p.email+'</td>'+
       '<td>'+(D.roles[p.role]?.[0]||p.role)+'</td>'+
       '<td><span class="linkbox" onclick="copy(\''+link+'\')" title="Скопировать">'+link+'</span></td>'+
+      '<td>'+cred+'</td>'+
       '<td><button class="btn btn-sm" onclick="setActive('+p.id+','+(!p.active)+')">'+(p.active?'Отключить':'Включить')+'</button></td></tr>';
   }
   document.getElementById('people').innerHTML=ph;
@@ -361,6 +386,22 @@ async function addPerson(){
   await api('/api/admin/people',{method:'POST',body:JSON.stringify(b)});
   toast('добавлен: '+b.name);['p-name','p-email','p-org'].forEach(i=>document.getElementById(i).value='');
   load();
+}
+// Выданные пароли держим только в памяти страницы: сервер отдаёт пароль один раз,
+// в базе остаётся отпечаток. Перезагрузили админку — пароль не посмотреть, выдаём новый.
+const CREDS={};
+async function genCreds(id){
+  const r=await api('/api/admin/people/'+id+'/credentials',{method:'POST'});
+  CREDS[id]={login:r.login,password:r.password};
+  toast('логин и пароль выданы — покажите или отправьте на почту');
+  await load();
+}
+async function sendCreds(id){
+  const c=CREDS[id];
+  if(!c){toast('сначала выдайте логин и пароль');return;}
+  await api('/api/admin/people/'+id+'/credentials/send',
+            {method:'POST',body:JSON.stringify(c)});
+  toast('письмо поставлено в очередь отправки');
 }
 async function setActive(id,on){await api('/api/admin/people/'+id+'/active',{method:'POST',body:JSON.stringify({active:on})});load();}
 async function assign(){
