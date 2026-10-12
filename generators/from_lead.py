@@ -169,6 +169,10 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]
             "why": it.get("why") if explicit_group else None,
             "price": it.get("price"), "conf": it.get("conf"), "price_note": it.get("price_note", ""),
         }
+        # Позиция альтернативной ветки: показывается на странице со своим итогом, но ни в общую
+        # сумму страницы, ни в сверку итогов здесь не входит — иначе обе ветки развилки сложатся.
+        if it.get("in_total") is False:
+            new["in_total"] = False
         if it.get("range"):
             new["range"] = list(it["range"])
             lo, hi = it["range"]
@@ -184,9 +188,10 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]
             price = it.get("price") or 0
             if not (lo - 1 <= price <= hi + 1):
                 print(f"  ! цена вне вилки: {it['pos'][:50]} {price} не в {lo}–{hi}")
-        lo_t += lo
-        hi_t += hi
-        tot += it.get("price") or 0
+        if it.get("in_total") is not False:
+            lo_t += lo
+            hi_t += hi
+            tot += it.get("price") or 0
         status = it.get("price_note", "").split(";")[-1].strip()
         if status == "не найдено":
             new["conf_label"] = "не найдено"
@@ -203,7 +208,7 @@ def convert_bom(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict, dict]
         elif it.get("weeks"):
             new["weeks"] = list(it["weeks"])
             weeks[idx] = new["weeks"]
-        out.append({k: v for k, v in new.items() if v not in (None, "")})
+        out.append({k: v for k, v in new.items() if v is False or v not in (None, "")})
     out = cl.walk(out)
     # уровни значимости категорий: сначала основное, потом обеспечение, потом расходники/ЗИП.
     # rules.bom_tiers: {aux: [подстроки имён групп], minor: [...]}; не названное — уровень 1.

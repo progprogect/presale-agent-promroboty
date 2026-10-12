@@ -40,9 +40,13 @@ def allowed_numbers(slug: str) -> set[int]:
     for it in items:
         p = it.get("price") or 0
         r = it.get("range") or [p, p]
-        tot += p
-        lo += r[0]
-        hi += r[1]
+        # Позиции альтернативной ветки (in_total: false) в общий итог страницы не входят —
+        # считаем допустимые числа так же, как их считает bom_page, иначе итог страницы
+        # выглядит «чужим» числом и чек ругается на собственную же сумму.
+        if it.get("in_total") is not False:
+            tot += p
+            lo += r[0]
+            hi += r[1]
         out.update({round(p), round(r[0]), round(r[1])})
         g = grp.setdefault(it.get("group") or "", [0, 0, 0])
         g[0] += p; g[1] += r[0]; g[2] += r[1]

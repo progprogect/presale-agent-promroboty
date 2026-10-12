@@ -2,7 +2,9 @@
 
 Поля позиции: pos, model, qty, why, price, conf, price_note (обязательны pos/model/qty).
 Необязательные: group (категория — сворачиваемая секция с итогом), range [мин, макс] (вилка цены,
-BYN), conf_label (своя подпись уверенности), weeks [мин, макс] (срок поставки, недель).
+BYN), conf_label (своя подпись уверенности), weeks [мин, макс] (срок поставки, недель),
+in_total: false (позиция альтернативной ветки — показывается с итогом своей группы, но в общую
+сумму не входит; группа помечается «вариант», когда так помечены ВСЕ её позиции).
 
 Если у сделки есть схема компоновки (bom["schematic"]: title, views[{id,title,svg}],
 positions[{pos,name,rows[]}]), она показывается над составом: наведение на позицию схемы
@@ -187,12 +189,19 @@ def render(deal: dict, bom: dict) -> str:
         <td><input class="form-control form-control-sm" data-akey="{key}"
           placeholder="Дешевле / замена / замечание"></td>
       </tr>""")
-        total += g_tot
-        lo_t += g_lo
-        hi_t += g_hi
+        # Вариантная группа (все позиции помечены in_total: false) показывается со своим итогом,
+        # но в общую сумму НЕ входит: иначе обе ветки развилки сложатся и итог будет вдвое больше
+        # того, что заказчик реально купит. Пометка видна проверяющему в заголовке группы.
+        alt_grp = all(it.get("in_total") is False for _, it in gitems)
+        if not alt_grp:
+            total += g_tot
+            lo_t += g_lo
+            hi_t += g_hi
         g_sum = fmt_p(g_tot) + (f" ({fmt_p(g_lo)}–{fmt_p(g_hi)})" if round(g_lo) != round(g_hi) else "")
-        rows.append(f'\n      <tr class="grp" data-grp="g{gi}"><td colspan="{ncols}">'
-                    f'<span class="chev">▾</span> {esc(gname)}'
+        alt_mark = ('<span class="badge bg-azure-lt" style="margin-left:8px">вариант · в итог не входит</span>'
+                    if alt_grp else "")
+        rows.append(f'\n      <tr class="grp{" alt" if alt_grp else ""}" data-grp="g{gi}"><td colspan="{ncols}">'
+                    f'<span class="chev">▾</span> {esc(gname)}{alt_mark}'
                     f'<span class="st-sum">{len(gitems)} поз. · {g_sum} BYN</span></td></tr>')
         rows += g_rows
 
@@ -202,6 +211,8 @@ def render(deal: dict, bom: dict) -> str:
     sch_block, sch_js = _schematic_block(bom.get("schematic") or {})
     body = f"""{sch_block}
   <p class="hint">Цены — закупка без наценки, BYN, за позицию целиком; серым под ценой — вилка.
+  Группа, помеченная «вариант», — альтернативная ветка решения: её итог показан отдельно и в общую
+  сумму не входит.
   Заголовок категории сворачивает её строки, рядом — итог категории. Знаете, где дешевле
   или лучше, — впишите в правую колонку: наш выбор не затирается, предложения лягут отдельным слоем.</p>
   <div class="card"><div class="tablebox">
