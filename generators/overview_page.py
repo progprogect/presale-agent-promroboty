@@ -46,13 +46,14 @@ def render(deal: dict, spec: dict) -> str:
                 if own else
                 "То, от чего мы отталкивались. Полезно открыть, если показалось, что мы что-то "
                 "поняли не так.")
+        # Кому файл откроется, страница не знает (она одна на всех) — это сообщает
+        # /api/d/<slug>/status признаком _tz, и скрипт ниже либо оставляет кнопки,
+        # либо заменяет их пояснением, как получить доступ.
         tz_block = f"""
   <div class="card mt-2"><div class="card-body py-3">
     <h3 style="font-size:13px;margin:0 0 4px">{esc(head)}</h3>
-    <p class="text-secondary" style="font-size:12px;margin:0 0 8px">{esc(note)}
-      Файл открывается по вашей персональной ссылке; если доступа нет — попросите его
-      у ответственного за проект.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">{links}</div>
+    <p class="text-secondary" style="font-size:12px;margin:0 0 8px">{esc(note)}</p>
+    <div id="tz-files" style="display:flex;gap:8px;flex-wrap:wrap">{links}</div>
   </div></div>"""
     else:
         tz_block = ""
@@ -137,6 +138,13 @@ drawApprovals();
   try{
     const r=await fetch(STATUS_BASE+UQ);if(!r.ok)return;
     const st=await r.json();
+    // Задание: если текущему зрителю файл не откроется, кнопки честнее заменить пояснением.
+    if(st._tz&&!st._tz.ok){
+      const b=document.getElementById('tz-files');
+      if(b)b.innerHTML='<span class="text-secondary" style="font-size:12.5px">Файл задания вам '+
+        'не открыт: в нём имя конечного заказчика. Если он нужен для проверки — напишите '+
+        'ответственному за проект.</span>';
+    }
     document.querySelectorAll('.secrow').forEach(row=>{
       const s=st[row.dataset.page]||{};const el=row.querySelector('.st');
       if(s.done_by)el.innerHTML='<span class="badge bg-green-lt">проверено · '+s.done_by+'</span>';

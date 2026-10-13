@@ -328,13 +328,22 @@ def main() -> None:
     if deal_yaml.exists():
         d = yaml.safe_load(deal_yaml.read_text(encoding="utf-8")) or {}
         own = bool(rules.get("tz_own"))
-        if list(d.get("tz_files") or []) != tz_names or bool(d.get("tz_own")) != own:
+        # Обезличенное задание (имени заказчика в файле нет) портал отдаёт любому назначенному;
+        # без этого флага файл заперт тем же гейтом, что ТКП. Ставить только после проверки
+        # текста файла на имя заказчика (check_confidential / pdftotext).
+        public = bool(rules.get("tz_public"))
+        if (list(d.get("tz_files") or []) != tz_names or bool(d.get("tz_own")) != own
+                or bool(d.get("tz_public")) != public):
             d["tz_files"] = tz_names
             # Задание, собранное нами вместо заказчика, на карточке называется своим именем.
             if own:
                 d["tz_own"] = True
             else:
                 d.pop("tz_own", None)
+            if public:
+                d["tz_public"] = True
+            else:
+                d.pop("tz_public", None)
             deal_yaml.write_text(yaml.dump(d, allow_unicode=True, sort_keys=False, width=100),
                                  encoding="utf-8")
             print(f"deal.yaml: записаны имена файлов задания ({len(tz_names)})")

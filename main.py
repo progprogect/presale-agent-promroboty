@@ -214,14 +214,27 @@ def deal_img(request: Request, slug: str, name: str, u: str | None = None) -> Fi
     return _deal_file(slug, "img", name)
 
 
+def _kp_gate(slug: str, token: str | None, request: Request) -> None:
+    """Гейт файлов с именем конечного заказчика (необезличенное ТЗ, собранное ТКП):
+    назначенный с доступом к ТКП либо директор. Назначенному без этого доступа окно
+    пароля не поможет — отвечаем внятным 403, а не приглашением войти (найдено 13.10.2026:
+    проверяющие упирались в окно пароля на кнопке задания)."""
+    if _kp_allowed(slug, token, request):
+        return
+    if token or _person_by_login(request):
+        _deal_access(slug, token, request)   # чужая или отозванная ссылка получит свой отказ
+        raise HTTPException(403, "доступ к этому файлу выдаётся отдельно — "
+                                 "попросите его у ответственного за проект")
+    _admin_auth(request)   # ни ссылки, ни логина: окно входа директора
+
+
 @app.get("/d/{slug}/proposal/{name}")
 def deal_proposal_file(request: Request, slug: str, name: str, u: str | None = None):
     """Собранное ТКП. В нём есть имя конечного заказчика, поэтому путь тот же, что у задания:
     файл в публичном репозитории НЕ лежит, приходит защищённым каналом выгрузки
     (tools/push_pipeline.py -> cardkp/<слаг>/<файл>) и отдаётся только по персональной ссылке
     назначенного с доступом к ТКП либо после входа в админку."""
-    if not _kp_allowed(slug, u, request):
-        _admin_auth(request)
+    _kp_gate(slug, u, request)
     if "/" in slug or ".." in slug or "/" in name or ".." in name:
         raise HTTPException(404)
     got = _pipeline_get(f"cardkp/{slug}/{name}")
@@ -235,14 +248,17 @@ def deal_proposal_file(request: Request, slug: str, name: str, u: str | None = N
 
 @app.get("/d/{slug}/tz/{name}")
 def deal_tz_file(request: Request, slug: str, name: str, u: str | None = None):
-    """Задание заказчика. В нём есть имя конечного заказчика, которое на портале не раскрывается,
-    поэтому: (1) сам файл в публичном репозитории НЕ лежит — он приходит защищённым каналом
-    выгрузки и хранится рядом с пайплайном; (2) отдаётся либо по персональной ссылке
-    назначенного с доступом к ТКП, либо после входа в админку (это директор)."""
-    if not _kp_allowed(slug, u, request):
-        _admin_auth(request)      # поднимет 401 с окном входа — директор откроет файл прямо из карточки
+    """Задание заказчика. Сам файл в публичном репозитории НЕ лежит — он приходит защищённым
+    каналом выгрузки и хранится рядом с пайплайном. Кому отдаётся, решает флаг tz_public
+    в deal.yaml: обезличенное задание (имени заказчика в нём нет) открыто любому назначенному
+    на проект; обычное содержит имя конечного заказчика, которое на портале не раскрывается, —
+    его видят назначенные с доступом к ТКП и директор (вход в админку)."""
     if "/" in slug or ".." in slug or "/" in name or ".." in name:
         raise HTTPException(404)
+    if _deal_titles().get(slug, {}).get("tz_public"):
+        _deal_access(slug, u, request)
+    else:
+        _kp_gate(slug, u, request)
     got = _pipeline_get(f"cardtz/{slug}/{name}")
     if got:
         data, ct = got
@@ -1072,6 +1088,12 @@ def deal_status(request: Request, slug: str, u: str | None = None) -> JSONRespon
         done = [u for u in ups if u.get("done")]
         out[page] = {"updates": len(ups), "done_by": done[-1]["reviewer"] if done else None,
                      "ts": ups[-1].get("ts")}
+    # Откроется ли текущему зрителю файл задания: «Обзор» по этому признаку либо показывает
+    # кнопки, либо честно пишет, что доступ выдаётся отдельно (вместо кнопки с окном пароля).
+    deal = _deal_titles().get(slug, {})
+    if deal.get("tz_files"):
+        out["_tz"] = {"ok": bool(deal.get("tz_public")) or _kp_allowed(slug, u, request)
+                      or _is_admin_basic(request)}
     return JSONResponse(out)
 
 

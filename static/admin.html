@@ -359,7 +359,7 @@ function render(){
   document.getElementById('p-role').innerHTML=roles;
   document.getElementById('as-pages').innerHTML='<span class="muted">Разделы (пусто = все, кроме ТКП):</span>'+
     Object.entries(PAGE_NAMES).map(([k,n])=>'<label><input type="checkbox" value="'+k+'" class="as-pg"> '+n+'</label>').join('')+
-    '<label><input type="checkbox" id="as-kp"> <b>доступ к ТКП</b></label>';
+    '<label><input type="checkbox" id="as-kp"> <b>доступ к ТКП</b> (и к заданию с именем заказчика)</label>';
 }
 async function load(){D=await api('/api/admin/overview');render();}
 let TPLS={};
