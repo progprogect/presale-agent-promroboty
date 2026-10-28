@@ -123,6 +123,10 @@ def convert_wbs(rules: dict, base: Path, cl: Cleaner) -> tuple[dict, dict]:
             if t.get("group") in lock:
                 t["lock"] = True
     out = {"roles": roles, "role_names": wbs["role_names"], "stages": stages}
+    # Фазы проекта (например, «Фаза 1 — КД» и «Фаза 2 — Внедрение»): подписи уходят на портал,
+    # wbs_page показывает их разделителями перед первым этапом каждой фазы.
+    if wbs.get("phases"):
+        out["phases"] = wbs["phases"]
     out = cl.walk(out)
     # сверка с шапкой источника: «# Пакетов: 432, часов: 10367»
     head = _p(base, rules["wbs"]).read_text(encoding="utf-8").splitlines()[:3]

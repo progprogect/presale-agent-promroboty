@@ -34,6 +34,11 @@ def render(deal: dict, wbs: dict) -> str:
     opt_grand = 0
     bodies = []
     opt_sep_done = False
+    # Фазы проекта (wbs["phases"]: {1: подпись, 2: подпись}) — разделитель перед первым
+    # этапом каждой фазы. Этап без поля phase (например, управление проектом на обе фазы)
+    # разделителя не добавляет и идёт внутри текущей фазы.
+    phases = wbs.get("phases") or {}
+    shown_phases: set = set()
 
     for si, stage in enumerate(wbs["stages"], 1):
         opt = bool(stage.get("option"))  # опция: вне итога, показывается отдельным блоком
@@ -118,10 +123,15 @@ def render(deal: dict, wbs: dict) -> str:
         closed = "" if si == 1 else " closed"
         rows_html = "".join(rows) + io_html + add_html
         sep = ""
+        ph = stage.get("phase")
+        if ph in phases and ph not in shown_phases:
+            shown_phases.add(ph)
+            sep += (f'<tbody><tr class="phasesep"><td colspan="{len(roles) + 4}">'
+                    f'{esc(str(phases[ph]))}</td></tr></tbody>')
         if opt and not opt_sep_done:
             opt_sep_done = True
-            sep = (f'<tbody><tr class="optsep"><td colspan="{len(roles) + 4}">'
-                   f'Опции — вне базового объёма и итога; заказчик выбирает отдельно</td></tr></tbody>')
+            sep += (f'<tbody><tr class="optsep"><td colspan="{len(roles) + 4}">'
+                    f'Опции — вне базового объёма и итога; заказчик выбирает отдельно</td></tr></tbody>')
         badge = '<span class="badge bg-orange-lt me-2">опция</span>' if opt else ""
         bodies.append(f"""{sep}
     <tbody>

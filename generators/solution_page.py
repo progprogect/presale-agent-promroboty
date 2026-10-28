@@ -5,7 +5,8 @@
 чем подтверждено → границы применимости. Один лист, без воды.
 
 Спека: summary, nodes[{name, what, why}], rejected[{option, why}], proof[строки],
-limits[строки], shots[{file, caption}] (необяз.).
+limits[строки], shots[{file, caption}] (необяз.), links[{file, label}] (необяз.) —
+кнопки на файлы карточки в img/ (например, интерактивная 3D-модель).
 """
 from .common import ICON_MIC, REVIEW_JS, esc, savebar, shell
 
@@ -35,11 +36,18 @@ def render(deal: dict, spec: dict) -> str:
                     f'<figcaption>{esc(s.get("caption", ""))}</figcaption></figure>'
                     for s in spec.get("shots", []))
 
+    links = "".join(
+        f'<a class="btn btn-sm btn-outline-primary" href="/d/{esc(deal["slug"])}/img/{esc(l["file"])}"'
+        f' target="_blank" rel="noopener">{esc(l.get("label", l["file"]))}</a>'
+        for l in spec.get("links", []))
+
     blocks = [f'<h3>Что предлагаем</h3><p>{esc(spec["summary"])}</p>']
     if shots:
         blocks.append(f'<div class="shots">{shots}</div>'
                       '<p class="meta text-secondary" style="font-size:11px;margin-top:4px">'
                       'Изображения концептуальные.</p>')
+    if links:
+        blocks.append(f'<div class="d-flex gap-2 flex-wrap mt-2">{links}</div>')
     if nodes:
         blocks.append('<h3>Из чего состоит и зачем каждый узел</h3>'
                       '<table class="table table-sm"><thead><tr><th>Узел</th><th>Что делает</th>'

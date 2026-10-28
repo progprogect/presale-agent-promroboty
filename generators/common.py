@@ -140,6 +140,9 @@ table.matrix th.role{font-size:11px;letter-spacing:.02em}
 .verdict label{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;margin:0}
 tr.optsep td{background:var(--tblr-orange-lt);color:var(--tblr-orange);font-size:11.5px;font-weight:600;
   padding:5px 10px;border-top:2px solid var(--tblr-border-color)}
+/* Разделитель фаз проекта в декомпозиции (например, «Фаза 1 — КД» / «Фаза 2 — Внедрение») */
+tr.phasesep td{background:var(--tblr-blue-lt);color:var(--tblr-primary);font-size:12px;font-weight:700;
+  padding:7px 10px;border-top:2px solid var(--tblr-border-color)}
 .rng{display:block;font-size:10.5px;color:var(--tblr-secondary);font-weight:400}
 .savebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
 .savebar input{max-width:200px}
