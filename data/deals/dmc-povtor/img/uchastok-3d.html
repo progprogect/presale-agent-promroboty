@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Участок укладки и палетирования — 3D</title>
+<script type="module"
+  src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+  :root { color-scheme: light dark;
+          --bg:#eceef1; --fg:#1b1d21; --muted:#5d626b; --card:#ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181c; --fg:#e8eaee; --muted:#9aa1ac; --card:#1e2127; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { padding:16px 16px 10px; }
+  h1 { margin:0 0 4px; font-size:19px; font-weight:650; }
+  p  { margin:0; color:var(--muted); font-size:13.5px; }
+  .wrap { padding:0 16px 20px; }
+  model-viewer { width:100%; height:80vh; min-height:380px; display:block;
+                 background:var(--card); border-radius:12px;
+                 box-shadow:0 1px 3px rgba(0,0,0,.14); }
+  footer { padding:0 16px 24px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Участок автоматической укладки и палетирования</h1>
+  <p>Вращение — левая кнопка, панорама — правая, масштаб — колесо или щипок.</p>
+</header>
+<div class="wrap">
+  <model-viewer id="mv"
+                alt="Участок укладки и палетирования"
+                camera-controls touch-action="pan-y"
+                shadow-intensity="1" exposure="1.05"
+                environment-image="neutral" camera-orbit="-30deg 64deg 14m"
+                min-camera-orbit="auto 0deg auto"
+                max-camera-orbit="auto 89deg auto"></model-viewer>
+</div>
+<footer>Изображения концептуальные: внешний вид узлов уточняется при проектировании,
+компоновка и позы роботов — из расчёта досягаемости. Компоновка v1.</footer>
+<script>
+  // модель лежит рядом; персональная ссылка несёт доступ в query (?u=...) —
+  // пробрасываем его и в запрос файла модели
+  document.getElementById('mv').src = 'model.glb' + location.search;
+</script>
+</body>
+</html>
